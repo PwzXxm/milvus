@@ -7,8 +7,6 @@
 *.dylib
 *.pyc
 *~
-.DS_Store
-depend
 /config.*
 /aclocal.m4
 /autom4te.cache/
@@ -18,4 +16,3 @@ depend
 /c_api/gpu/bin/
 /tests/test
 /tests/gtest/
-include/
