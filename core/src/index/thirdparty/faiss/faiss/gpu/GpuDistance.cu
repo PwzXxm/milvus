@@ -85,7 +85,10 @@ void bfKnnConvert(GpuResourcesProvider* prov, const GpuDistanceParams& args) {
                      makeTempAlloc(AllocType::Other, stream),
                      {args.numQueries, args.k});
 
-    // Since we've guaranteed that all arguments are on device, call the
+  // Empty bitset
+  auto bitsetDevice = toDevice<uint8_t, 1>(res, device, nullptr, stream, {0});
+
+      // Since we've guaranteed that all arguments are on device, call the
     // implementation
     bfKnnOnDevice<T>(res,
                      device,
@@ -95,6 +98,7 @@ void bfKnnConvert(GpuResourcesProvider* prov, const GpuDistanceParams& args) {
                      args.vectorNorms ? &tVectorNorms : nullptr,
                      tQueries,
                      args.queriesRowMajor,
+                     bitsetDevice,
                      args.k,
                      args.metric,
                      args.metricArg,

@@ -123,6 +123,7 @@ GpuIndexIVFScalarQuantizer::copyTo(
   index->sq = sq;
   index->code_size = sq.code_size;
   index->by_residual = by_residual;
+  index->code_size = sq.code_size;
 
   auto ivf = new ArrayInvertedLists(nlist, index->code_size);
   index->replace_invlists(ivf, true);
@@ -258,17 +259,28 @@ GpuIndexIVFScalarQuantizer::searchImpl_(int n,
                                         const float* x,
                                         int k,
                                         float* distances,
-                                        Index::idx_t* labels) const {
+                                        Index::idx_t* labels,
+                                        ConcurrentBitsetPtr bitset) const {
   // Device is already set in GpuIndex::search
   FAISS_ASSERT(index_);
   FAISS_ASSERT(n > 0);
+
+  auto stream = resources_->getDefaultStream(device_);
 
   // Data is already resident on the GPU
   Tensor<float, 2, true> queries(const_cast<float*>(x), {n, (int) this->d});
   Tensor<float, 2, true> outDistances(distances, {n, k});
   Tensor<Index::idx_t, 2, true> outLabels(const_cast<Index::idx_t*>(labels), {n, k});
 
-  index_->query(queries, nprobe, k, outDistances, outLabels);
+  if (!bitset) {
+    auto bitsetDevice = toDevice<uint8_t, 1>(resources_, device_, nullptr, stream, {0});
+    index_->query(queries, bitsetDevice, nprobe, k, outDistances, outLabels);
+  } else {
+    auto bitsetDevice = toDevice<uint8_t, 1>(resources_, device_,
+                                             const_cast<uint8_t*>(bitset->data()), stream,
+                                             {(int) bitset->size()});
+    index_->query(queries, bitsetDevice, nprobe, k, outDistances, outLabels);
+  }
 }
 
 } } // namespace

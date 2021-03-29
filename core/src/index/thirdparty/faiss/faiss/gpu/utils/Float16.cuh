@@ -17,10 +17,13 @@
 #define FAISS_USE_FULL_FLOAT16 1
 #endif // __CUDA_ARCH__ types
 
+#ifdef FAISS_USE_FLOAT16
 #include <cuda_fp16.h>
+#endif
 
 namespace faiss { namespace gpu {
 
+#ifdef FAISS_USE_FLOAT16
 // 64 bytes containing 4 half (float16) values
 struct Half4 {
   half2 a;
@@ -69,5 +72,5 @@ inline bool getDeviceSupportsFloat16Math(int device) {
   return (prop.major >= 6 ||
           (prop.major == 5 && prop.minor >= 3));
 }
-
+#endif
 } } // namespace

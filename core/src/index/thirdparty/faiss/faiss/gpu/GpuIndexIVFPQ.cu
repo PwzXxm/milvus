@@ -35,6 +35,10 @@ GpuIndexIVFPQ::GpuIndexIVFPQ(GpuResourcesProvider* provider,
     subQuantizers_(0),
     bitsPerCode_(0),
     reserveMemoryVecs_(0) {
+#ifndef FAISS_USE_FLOAT16
+  FAISS_ASSERT(!ivfpqConfig_.useFloat16LookupTables);
+#endif
+
   copyFrom(index);
 }
 
@@ -56,6 +60,10 @@ GpuIndexIVFPQ::GpuIndexIVFPQ(GpuResourcesProvider* provider,
     subQuantizers_(subQuantizers),
     bitsPerCode_(bitsPerCode),
     reserveMemoryVecs_(0) {
+#ifndef FAISS_USE_FLOAT16
+  FAISS_ASSERT(!config.useFloat16LookupTables);
+#endif
+
   verifySettings_();
 
   // We haven't trained ourselves, so don't construct the PQ index yet
@@ -339,17 +347,28 @@ GpuIndexIVFPQ::searchImpl_(int n,
                            const float* x,
                            int k,
                            float* distances,
-                           Index::idx_t* labels) const {
+                           Index::idx_t* labels,
+                           ConcurrentBitsetPtr bitset) const {
   // Device is already set in GpuIndex::search
   FAISS_ASSERT(index_);
   FAISS_ASSERT(n > 0);
+
+  auto stream = resources_->getDefaultStream(device_);
 
   // Data is already resident on the GPU
   Tensor<float, 2, true> queries(const_cast<float*>(x), {n, (int) this->d});
   Tensor<float, 2, true> outDistances(distances, {n, k});
   Tensor<Index::idx_t, 2, true> outLabels(const_cast<Index::idx_t*>(labels), {n, k});
 
-  index_->query(queries, nprobe, k, outDistances, outLabels);
+  if (!bitset) {
+    auto bitsetDevice = toDevice<uint8_t, 1>(resources_, device_, nullptr, stream, {0});
+    index_->query(queries, bitsetDevice, nprobe, k, outDistances, outLabels);
+  } else {
+    auto bitsetDevice = toDevice<uint8_t, 1>(resources_, device_,
+                                             const_cast<uint8_t*>(bitset->data()), stream,
+                                             {(int) bitset->size()});
+    index_->query(queries, bitsetDevice, nprobe, k, outDistances, outLabels);
+  }
 }
 
 int
@@ -413,9 +432,11 @@ GpuIndexIVFPQ::verifySettings_() const {
   // We must have enough shared memory on the current device to store
   // our lookup distances
   int lookupTableSize = sizeof(float);
+#ifdef FAISS_USE_FLOAT16
   if (ivfpqConfig_.useFloat16LookupTables) {
     lookupTableSize = sizeof(half);
   }
+#endif
 
   // 64 bytes per code is only supported with usage of float16, at 2^8
   // codes per subquantizer

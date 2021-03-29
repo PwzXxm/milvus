@@ -60,6 +60,7 @@ int main(int argc, char** argv) {
     limitK = GPU_MAX_SELECTION_K;
   }
 
+  faiss::gpu::DeviceTensor<uint8_t, 1, true> bitset(nullptr, {0});
   for (int k = startK; k <= limitK; k *= 2) {
     DeviceTensor<float, 2, true>
       gpuOutVal(resUse.get(), makeDevAlloc(AllocType::Other, 0), {FLAGS_rows, k});
@@ -70,7 +71,7 @@ int main(int argc, char** argv) {
       if (FLAGS_warp) {
         runWarpSelect(gpuVal, gpuOutVal, gpuOutInd, FLAGS_dir, k, 0);
       } else {
-        runBlockSelect(gpuVal, gpuOutVal, gpuOutInd, FLAGS_dir, k, 0);
+        runBlockSelect(gpuVal, bitset, gpuOutVal, gpuOutInd, FLAGS_dir, k, 0);
       }
     }
   }

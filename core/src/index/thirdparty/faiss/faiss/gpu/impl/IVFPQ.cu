@@ -65,6 +65,10 @@ IVFPQ::IVFPQ(GpuResources* resources,
   FAISS_ASSERT(dim_ % numSubQuantizers_ == 0);
   FAISS_ASSERT(interleavedLayout || isSupportedPQCodeLength(numSubQuantizers_));
 
+#ifndef FAISS_USE_FLOAT16
+  FAISS_ASSERT(!useFloat16LookupTables_);
+#endif
+
   setPQCentroids_(pqCentroidData);
 }
 
@@ -112,7 +116,9 @@ IVFPQ::setPrecomputedCodes(bool enable) {
     } else {
       // Clear out old precomputed code data
       precomputedCode_ = DeviceTensor<float, 3, true>();
+#ifdef FAISS_USE_FLOAT16
       precomputedCodeHalf_ = DeviceTensor<half, 3, true>();
+#endif
     }
   }
 }

@@ -62,7 +62,9 @@ class IVFBase {
   /// Return the list indices of a particular list back to the CPU
   std::vector<Index::idx_t> getListIndices(int listId) const;
 
-  /// Return the encoded vectors of a particular list back to the CPU
+  DeviceVector<unsigned char>* getTrainedData() { return deviceTrained_.get(); };
+
+    /// Return the encoded vectors of a particular list back to the CPU
   std::vector<uint8_t> getListVectorData(int listId, bool gpuFormat) const;
 
   /// Copy all inverted lists from a CPU representation to ourselves
@@ -78,7 +80,13 @@ class IVFBase {
   int addVectors(Tensor<float, 2, true>& vecs,
                  Tensor<Index::idx_t, 1, true>& indices);
 
- protected:
+  void copyIndicesFromCpu_(const long* indices,
+                           const std::vector<size_t>& list_length);
+
+  void addTrainedDataFromCpu_(const uint8_t* trained, size_t numData);
+
+
+protected:
   /// Adds a set of codes and indices to a list, with the representation coming
   /// from the CPU equivalent
   void addEncodedVectorsToList_(int listId,

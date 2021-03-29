@@ -231,7 +231,8 @@ GpuIndex::search(Index::idx_t n,
                  const float* x,
                  Index::idx_t k,
                  float* distances,
-                 Index::idx_t* labels) const {
+                 Index::idx_t* labels,
+                 ConcurrentBitsetPtr bitset) const {
   FAISS_THROW_IF_NOT_MSG(this->is_trained, "Index not trained");
 
   // For now, only support <= max int results
@@ -286,7 +287,8 @@ GpuIndex::search(Index::idx_t n,
     if (dataSize >= minPagedSize_) {
       searchFromCpuPaged_(n, x, k,
                           outDistances.data(),
-                          outLabels.data());
+                          outLabels.data(),
+                          bitset);
       usePaged = true;
     }
   }
@@ -294,7 +296,8 @@ GpuIndex::search(Index::idx_t n,
   if (!usePaged) {
     searchNonPaged_(n, x, k,
                     outDistances.data(),
-                    outLabels.data());
+                    outLabels.data(),
+                    bitset);
   }
 
   // Copy back if necessary
@@ -307,7 +310,8 @@ GpuIndex::searchNonPaged_(int n,
                           const float* x,
                           int k,
                           float* outDistancesData,
-                          Index::idx_t* outIndicesData) const {
+                          Index::idx_t* outIndicesData,
+                          ConcurrentBitsetPtr bitset) const {
   auto stream = resources_->getDefaultStream(config_.device);
 
   // Make sure arguments are on the device we desire; use temporary
@@ -318,7 +322,7 @@ GpuIndex::searchNonPaged_(int n,
                                           stream,
                                           {n, (int) this->d});
 
-  searchImpl_(n, vecs.data(), k, outDistancesData, outIndicesData);
+  searchImpl_(n, vecs.data(), k, outDistancesData, outIndicesData, bitset);
 }
 
 void
@@ -326,7 +330,8 @@ GpuIndex::searchFromCpuPaged_(int n,
                               const float* x,
                               int k,
                               float* outDistancesData,
-                              Index::idx_t* outIndicesData) const {
+                              Index::idx_t* outIndicesData,
+                              ConcurrentBitsetPtr bitset) const {
   Tensor<float, 2, true> outDistances(outDistancesData, {n, k});
   Tensor<Index::idx_t, 2, true> outIndices(outIndicesData, {n, k});
 
@@ -351,7 +356,8 @@ GpuIndex::searchFromCpuPaged_(int n,
                       x + (size_t) cur * this->d,
                       k,
                       outDistancesSlice.data(),
-                      outIndicesSlice.data());
+                      outIndicesSlice.data(),
+                      bitset);
     }
 
     return;
@@ -461,7 +467,8 @@ GpuIndex::searchFromCpuPaged_(int n,
                   bufGpus[cur3BufIndex]->data(),
                   k,
                   outDistancesSlice.data(),
-                  outIndicesSlice.data());
+                  outIndicesSlice.data(),
+                  bitset);
 
       // Create completion event
       eventGpuExecuteDone[cur3BufIndex].reset(new CudaEvent(defaultStream));

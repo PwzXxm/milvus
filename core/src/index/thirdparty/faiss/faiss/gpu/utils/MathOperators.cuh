@@ -217,6 +217,7 @@ struct Math<float4> {
   }
 };
 
+#ifdef FAISS_USE_FLOAT16
 template <>
 struct Math<half> {
   typedef half ScalarType;
@@ -555,5 +556,5 @@ struct Math<Half8> {
     return h;
   }
 };
-
+#endif
 } } // namespace
