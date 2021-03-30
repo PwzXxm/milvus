@@ -35,6 +35,7 @@
 #include <faiss/IndexIVFSpectralHash.h>
 #include <faiss/MetaIndexes.h>
 #include <faiss/IndexScalarQuantizer.h>
+#include <faiss/IndexSQHybrid.h>
 #include <faiss/IndexHNSW.h>
 #include <faiss/IndexLattice.h>
 #include <faiss/IndexPQFastScan.h>
@@ -349,6 +350,15 @@ void write_index (const Index *idx, IOWriter *f) {
         WRITE1 (ivsc->code_size);
         WRITE1 (ivsc->by_residual);
         write_InvertedLists (ivsc->invlists, f);
+    } else if(const IndexIVFSQHybrid *ivfsqhbyrid =
+            dynamic_cast<const IndexIVFSQHybrid*>(idx)) {
+        uint32_t h = fourcc ("ISqH");
+        WRITE1 (h);
+        write_ivf_header (ivfsqhbyrid, f);
+        write_ScalarQuantizer (&ivfsqhbyrid->sq, f);
+        WRITE1 (ivfsqhbyrid->code_size);
+        WRITE1 (ivfsqhbyrid->by_residual);
+        write_InvertedLists (ivfsqhbyrid->invlists, f);
     } else if(const IndexIVFSpectralHash *ivsp =
               dynamic_cast<const IndexIVFSpectralHash *>(idx)) {
         uint32_t h = fourcc ("IwSh");

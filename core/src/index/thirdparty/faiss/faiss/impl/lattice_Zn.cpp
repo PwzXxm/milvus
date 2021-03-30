@@ -21,6 +21,7 @@
 
 #include <faiss/utils/distances.h>
 #include <faiss/impl/platform_macros.h>
+#include <faiss/FaissHook.h>
 
 
 namespace faiss {

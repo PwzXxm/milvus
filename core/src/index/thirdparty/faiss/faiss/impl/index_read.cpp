@@ -35,6 +35,7 @@
 #include <faiss/IndexIVFSpectralHash.h>
 #include <faiss/MetaIndexes.h>
 #include <faiss/IndexScalarQuantizer.h>
+#include <faiss/IndexSQHybrid.h>
 #include <faiss/IndexHNSW.h>
 #include <faiss/IndexLattice.h>
 #include <faiss/IndexPQFastScan.h>
@@ -513,6 +514,14 @@ Index *read_index (IOReader *f, int io_flags) {
         }
         read_InvertedLists (ivsc, f, io_flags);
         idx = ivsc;
+    } else if (h == fourcc("ISqH")) {
+        IndexIVFSQHybrid *ivfsqhbyrid = new IndexIVFSQHybrid();
+        read_ivf_header(ivfsqhbyrid, f);
+        read_ScalarQuantizer(&ivfsqhbyrid->sq, f);
+        READ1 (ivfsqhbyrid->code_size);
+        READ1 (ivfsqhbyrid->by_residual);
+        read_InvertedLists(ivfsqhbyrid, f, io_flags);
+        idx = ivfsqhbyrid;
     } else if(h == fourcc ("IwSh")) {
         IndexIVFSpectralHash *ivsp = new IndexIVFSpectralHash ();
         read_ivf_header (ivsp, f);
