@@ -16,6 +16,7 @@
 
 #include <faiss/utils/Heap.h>
 #include <faiss/impl/platform_macros.h>
+#include <faiss/utils/ConcurrentBitset.h>
 
 
 namespace faiss {
@@ -24,29 +25,30 @@ namespace faiss {
  * Optimized distance/norm/inner prod computations
  *********************************************************/
 
-
+#ifdef __SSE__
 /// Squared L2 distance between two vectors
-float fvec_L2sqr (
+float fvec_L2sqr_sse (
         const float * x,
         const float * y,
         size_t d);
 
 /// inner product
-float  fvec_inner_product (
+float  fvec_inner_product_sse (
         const float * x,
         const float * y,
         size_t d);
 
 /// L1 distance
-float fvec_L1 (
+float fvec_L1_sse (
         const float * x,
         const float * y,
         size_t d);
 
-float fvec_Linf (
+float fvec_Linf_sse (
         const float * x,
         const float * y,
         size_t d);
+#endif
 
 
 /** Compute pairwise distances between sets of vectors
@@ -156,6 +158,9 @@ void pairwise_indexed_inner_product (
 // threshold on nx above which we switch to BLAS to compute distances
 FAISS_API extern int distance_compute_blas_threshold;
 
+// threshold on nx above which we switch to compute parallel on ny
+extern int parallel_policy_threshold;
+
 // block sizes for BLAS distance computations
 FAISS_API extern int distance_compute_blas_query_bs;
 FAISS_API extern int distance_compute_blas_database_bs;
@@ -175,7 +180,8 @@ void knn_inner_product (
         const float * x,
         const float * y,
         size_t d, size_t nx, size_t ny,
-        float_minheap_array_t * res);
+        float_minheap_array_t * res,
+        ConcurrentBitsetPtr bitset = nullptr);
 
 /** Same as knn_inner_product, for the L2 distance
  *  @param y_norm2    norms for the y vectors (nullptr or size ny)
@@ -185,8 +191,15 @@ void knn_L2sqr (
         const float * y,
         size_t d, size_t nx, size_t ny,
         float_maxheap_array_t * res,
-        const float *y_norm2 = nullptr);
+        const float *y_norm2 = nullptr,
+        ConcurrentBitsetPtr bitset = nullptr);
 
+void knn_jaccard (
+        const float * x,
+        const float * y,
+        size_t d, size_t nx, size_t ny,
+        float_maxheap_array_t * res,
+        ConcurrentBitsetPtr bitset = nullptr);
 
 /* Find the nearest neighbors for nx queries in a set of ny vectors
  * indexed by ids. May be useful for re-ranking a pre-selected vector list
@@ -248,5 +261,22 @@ void compute_PQ_dis_tables_dsub2(
         size_t nx, const float * x,
         bool is_inner_product,
         float * dis_tables);
+
+/***************************************************************************
+ * elkan
+ ***************************************************************************/
+
+/** Return the nearest neighors of each of the nx vectors x among the ny
+ *
+ * @param x    query vectors, size nx * d
+ * @param y    database vectors, size ny * d
+ * @param ids  result array ids
+ * @param val  result array value
+ */
+    void elkan_L2_sse (
+            const float * x,
+            const float * y,
+            size_t d, size_t nx, size_t ny,
+            int64_t *ids, float *val);
 
 } // namespace faiss

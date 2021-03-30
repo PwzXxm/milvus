@@ -17,10 +17,12 @@
 
 #include <omp.h>
 
+#include <faiss/BuilderSuspend.h>
+#include <faiss/FaissHook.h>
 #include <faiss/impl/AuxIndexStructures.h>
 #include <faiss/impl/FaissAssert.h>
 #include <faiss/impl/ResultHandler.h>
-
+#include <faiss/utils/ConcurrentBitset.h>
 
 
 #ifndef FINTEGER
@@ -108,7 +110,6 @@ void fvec_renorm_L2 (size_t d, size_t nx, float * __restrict x)
  ***************************************************************************/
 
 namespace {
-
 
 
 /* Find the nearest neighbors for nx queries in a set of ny vectors */
@@ -618,6 +619,71 @@ void inner_product_to_L2sqr(float* __restrict dis,
         for (size_t i = 0; i < n2; i++)
             disj[i] = nr1[j] + nr2[i] - 2 * disj[i];
     }
+}
+
+
+void elkan_L2_sse (
+        const float * x,
+        const float * y,
+        size_t d, size_t nx, size_t ny,
+        int64_t *ids, float *val) {
+
+    if (nx == 0 || ny == 0) {
+        return;
+    }
+
+    const size_t bs_y = 1024;
+    float *data = (float *) malloc((bs_y * (bs_y - 1) / 2) * sizeof (float));
+
+    for (size_t j0 = 0; j0 < ny; j0 += bs_y) {
+        BuilderSuspend::check_wait();
+
+        size_t j1 = j0 + bs_y;
+        if (j1 > ny) j1 = ny;
+
+        auto Y = [&](size_t i, size_t j) -> float& {
+            assert(i != j);
+            i -= j0, j -= j0;
+            return (i > j) ? data[j + i * (i - 1) / 2] : data[i + j * (j - 1) / 2];
+        };
+
+#pragma omp parallel for
+        for (size_t i = j0 + 1; i < j1; i++) {
+            const float *y_i = y + i * d;
+            for (size_t j = j0; j < i; j++) {
+                const float *y_j = y + j * d;
+                Y(i, j) = sqrt(fvec_L2sqr(y_i, y_j, d));
+            }
+        }
+
+#pragma omp parallel for
+        for (size_t i = 0; i < nx; i++) {
+            const float *x_i = x + i * d;
+
+            int64_t ids_i = j0;
+            float val_i = sqrt(fvec_L2sqr(x_i, y + j0 * d, d));
+            float val_i_2 = val_i * 2;
+            for (size_t j = j0 + 1; j < j1; j++) {
+                if (val_i_2 <= Y(ids_i, j)) {
+                    continue;
+                }
+                const float *y_j = y + j * d;
+                float disij = sqrt(fvec_L2sqr(x_i, y_j, d));
+                if (disij < val_i) {
+                    ids_i = j;
+                    val_i = disij;
+                    val_i_2 = val_i * 2;
+                }
+            }
+
+            if (j0 == 0 || val[i] > val_i) {
+                val[i] = val_i;
+                ids[i] = ids_i;
+            }
+        }
+    }
+
+    free(data);
 }
 
 

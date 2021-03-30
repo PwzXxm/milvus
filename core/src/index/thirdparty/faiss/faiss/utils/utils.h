@@ -22,6 +22,7 @@
 #define strtok_r strtok_s
 #endif // _MSC_VER
 
+#include <string>
 #include <faiss/utils/Heap.h>
 
 
@@ -163,6 +164,21 @@ uint64_t hash_bytes (const uint8_t *bytes, int64_t n);
 
 /** Whether OpenMP annotations were respected. */
 bool check_openmp();
+
+/** get the size of L3 cache  */
+int64_t get_L3_Size();
+
+extern void (*LOG_TRACE_)(const std::string&);
+
+extern void (*LOG_DEBUG_)(const std::string&);
+
+extern void (*LOG_INFO_)(const std::string&);
+
+extern void (*LOG_WARNING_)(const std::string&);
+
+extern void (*LOG_FATAL_)(const std::string&);
+
+extern void (*LOG_ERROR_)(const std::string&);
 
 } // namspace faiss
 

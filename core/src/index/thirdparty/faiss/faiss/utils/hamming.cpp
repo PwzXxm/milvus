@@ -31,6 +31,7 @@
 #include <memory>
 #include <stdio.h>
 #include <math.h>
+#include <omp.h>
 
 #include <faiss/utils/Heap.h>
 #include <faiss/impl/FaissAssert.h>
@@ -38,13 +39,13 @@
 #include <faiss/impl/AuxIndexStructures.h>
 
 static const size_t BLOCKSIZE_QUERY = 8192;
-
+static const size_t size_1M = 1 * 1024 * 1024;
 
 namespace faiss {
 
 size_t hamming_batch_size = 65536;
 
-static const uint8_t hamdis_tab_ham_bytes[256] = {
+static const uint8_t lookup8bit[256] = {
     0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
     1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
     1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
@@ -73,7 +74,7 @@ T hamming (const uint8_t *bs1,
     size_t i;
     T h = 0;
     for (i = 0; i < nbytes; i++)
-        h += (T) hamdis_tab_ham_bytes[bs1[i]^bs2[i]];
+        h += (T) lookup8bit[bs1[i]^bs2[i]];
     return h;
 }
 
@@ -658,7 +659,7 @@ void hamming_range_search_template (
             RangeQueryResult & qres = pres.new_result (i);
 
             for (size_t j = 0; j < nb; j++) {
-                int dis = hc.hamming (yi);
+                int dis = hc.compute (yi);
                 if (dis < radius) {
                     qres.add(dis, j);
                 }
@@ -686,12 +687,7 @@ void hamming_range_search (
     case 8: HC(HammingComputer8); break;
     case 16: HC(HammingComputer16); break;
     case 32: HC(HammingComputer32); break;
-    default:
-        if (code_size % 8 == 0) {
-            HC(HammingComputerM8);
-        } else {
-            HC(HammingComputerDefault);
-        }
+    default: HC(HammingComputerDefault);
     }
 #undef HC
 }
@@ -813,7 +809,7 @@ static void hamming_dis_inner_loop (
     HammingComputer hc (ca, code_size);
 
     for (size_t j = 0; j < nb; j++) {
-        int ndiff = hc.hamming (cb);
+        int ndiff = hc.compute (cb);
         cb += code_size;
         if (ndiff < bh_val_[0]) {
             maxheap_replace_top<hamdis_t> (k, bh_val_, bh_ids_, ndiff, j);
