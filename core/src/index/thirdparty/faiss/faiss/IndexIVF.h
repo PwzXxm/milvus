@@ -21,6 +21,7 @@
 #include <faiss/Clustering.h>
 #include <faiss/impl/platform_macros.h>
 #include <faiss/utils/Heap.h>
+#include <faiss/utils/ConcurrentBitset.h>
 
 
 namespace faiss {
@@ -32,7 +33,8 @@ namespace faiss {
  * of the lists (especially training)
  */
 struct Level1Quantizer {
-    Index * quantizer;        ///< quantizer that maps vectors to inverted lists
+    Index * quantizer = nullptr;        ///< quantizer that maps vectors to inverted lists
+    Index * quantizer_backup = nullptr; ///< quantizer for backup
     size_t nlist;             ///< number of possible key values
 
     /**
@@ -188,15 +190,18 @@ struct IndexIVF: Index, Level1Quantizer {
             float *distances, idx_t *labels,
             bool store_pairs,
             const IVFSearchParameters *params=nullptr,
-            IndexIVFStats *stats=nullptr
+            IndexIVFStats *stats=nullptr,
+            ConcurrentBitsetPtr bitset = nullptr
             ) const;
 
     /** assign the vectors, then call search_preassign */
     void search (idx_t n, const float *x, idx_t k,
-                 float *distances, idx_t *labels) const override;
+                 float *distances, idx_t *labels,
+                 ConcurrentBitsetPtr bitset = nullptr) const override;
 
     void range_search (idx_t n, const float* x, float radius,
-                       RangeSearchResult* result) const override;
+                       RangeSearchResult* result,
+                       ConcurrentBitsetPtr bitset = nullptr) const override;
 
     void range_search_preassigned(
             idx_t nx, const float *x, float radius,
@@ -204,7 +209,8 @@ struct IndexIVF: Index, Level1Quantizer {
             RangeSearchResult *result,
             bool store_pairs=false,
             const IVFSearchParameters *params=nullptr,
-            IndexIVFStats *stats=nullptr) const;
+            IndexIVFStats *stats=nullptr,
+            ConcurrentBitsetPtr bitset = nullptr) const;
 
     /// get a scanner for this index (store_pairs means ignore labels)
     virtual InvertedListScanner *get_InvertedListScanner (
@@ -282,6 +288,14 @@ struct IndexIVF: Index, Level1Quantizer {
     virtual void copy_subset_to (IndexIVF & other, int subset_type,
                                  idx_t a1, idx_t a2) const;
 
+    virtual void to_readonly();
+
+    virtual bool is_readonly() const;
+
+    virtual void backup_quantizer();
+
+    virtual void restore_quantizer();
+
     ~IndexIVF() override;
 
     size_t get_list_size (size_t list_no) const
@@ -305,6 +319,8 @@ struct IndexIVF: Index, Level1Quantizer {
 
     void sa_encode (idx_t n, const float *x,
                           uint8_t *bytes) const override;
+
+    void dump();
 
     IndexIVF ();
 };
@@ -343,7 +359,8 @@ struct InvertedListScanner {
                                const uint8_t *codes,
                                const idx_t *ids,
                                float *distances, idx_t *labels,
-                               size_t k) const = 0;
+                               size_t k,
+                               ConcurrentBitsetPtr bitset = nullptr) const = 0;
 
     /** scan a set of codes, compute distances to current query and
      * update results if distances are below radius
@@ -353,7 +370,8 @@ struct InvertedListScanner {
                                    const uint8_t *codes,
                                    const idx_t *ids,
                                    float radius,
-                                   RangeQueryResult &result) const;
+                                   RangeQueryResult &result,
+                                   ConcurrentBitsetPtr bitset = nullptr) const;
 
     virtual ~InvertedListScanner () {}
 

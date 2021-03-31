@@ -11,6 +11,7 @@
 #define FAISS_INDEX_H
 
 #include <faiss/MetricType.h>
+#include <faiss/utils/ConcurrentBitset.h>
 #include <cstdio>
 #include <typeinfo>
 #include <string>
@@ -110,9 +111,11 @@ struct Index {
      * @param x           input vectors to search, size n * d
      * @param labels      output labels of the NNs, size n*k
      * @param distances   output pairwise distances, size n*k
+     * @param bitset      flags to check the validity of vectors
      */
     virtual void search (idx_t n, const float *x, idx_t k,
-                         float *distances, idx_t *labels) const = 0;
+                         float *distances, idx_t *labels,
+                         ConcurrentBitsetPtr bitset = nullptr) const = 0;
 
     /** query n vectors of dimension d to the index.
      *
@@ -125,15 +128,16 @@ struct Index {
      * @param result      result table
      */
     virtual void range_search (idx_t n, const float *x, float radius,
-                               RangeSearchResult *result) const;
+                               RangeSearchResult *result,
+                               ConcurrentBitsetPtr bitset = nullptr) const;
 
     /** return the indexes of the k vectors closest to the query x.
      *
      * This function is identical as search but only return labels of neighbors.
      * @param x           input vectors to search, size n * d
-     * @param labels      output labels of the NNs, size n*k
+     * @param labels      output labels of the NNs, size n
      */
-    virtual void assign (idx_t n, const float * x, idx_t * labels, idx_t k = 1) const;
+    virtual void assign (idx_t n, const float * x, idx_t * labels, float* distance = nullptr);
 
     /// removes all elements from the database.
     virtual void reset() = 0;

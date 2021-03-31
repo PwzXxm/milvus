@@ -7,9 +7,13 @@
 
 // -*- c++ -*-
 
+#include <faiss/Index.h>
+#include <faiss/IndexBinary.h>
 #include <faiss/IndexBinaryFlat.h>
 
+#include <cmath>
 #include <cstring>
+#include <faiss/utils/BinaryDistance.h>
 #include <faiss/utils/hamming.h>
 #include <faiss/utils/utils.h>
 #include <faiss/utils/Heap.h>
@@ -21,7 +25,10 @@ namespace faiss {
 IndexBinaryFlat::IndexBinaryFlat(idx_t d)
     : IndexBinary(d) {}
 
-void IndexBinaryFlat::add(idx_t n, const uint8_t *x) {
+IndexBinaryFlat::IndexBinaryFlat(idx_t d, MetricType metric)
+    : IndexBinary(d, metric) {}
+
+    void IndexBinaryFlat::add(idx_t n, const uint8_t *x) {
   xb.insert(xb.end(), x, x + n * code_size);
   ntotal += n;
 }
@@ -32,27 +39,37 @@ void IndexBinaryFlat::reset() {
 }
 
 void IndexBinaryFlat::search(idx_t n, const uint8_t *x, idx_t k,
-                             int32_t *distances, idx_t *labels) const {
-  const idx_t block_size = query_batch_size;
-  for (idx_t s = 0; s < n; s += block_size) {
-    idx_t nn = block_size;
-    if (s + block_size > n) {
-      nn = n - s;
-    }
+                             int32_t *distances, idx_t *labels,
+                             ConcurrentBitsetPtr bitset) const {
 
-    if (use_heap) {
-      // We see the distances and labels as heaps.
-      int_maxheap_array_t res = {
-        size_t(nn), size_t(k), labels + s * k, distances + s * k
-      };
+    if (metric_type == METRIC_Jaccard || metric_type == METRIC_Tanimoto) {
+        float *D = reinterpret_cast<float*>(distances);
+        float_maxheap_array_t res = {
+                size_t(n), size_t(k), labels, D
+        };
+        binary_distance_knn_hc(METRIC_Jaccard, &res, x, xb.data(), ntotal, code_size, bitset);
 
-      hammings_knn_hc(&res, x + s * code_size, xb.data(), ntotal, code_size,
-                      /* ordered = */ true);
+        if (metric_type == METRIC_Tanimoto) {
+            for (int i = 0; i < k * n; i++) {
+                D[i] = Jaccard_2_Tanimoto(D[i]);
+            }
+        }
+
+    } else if (metric_type == METRIC_Hamming) {
+        int_maxheap_array_t res = {
+                size_t(n), size_t(k), labels, distances
+        };
+        binary_distance_knn_hc(METRIC_Hamming, &res, x, xb.data(), ntotal, code_size, bitset);
+
+    } else if (metric_type == METRIC_Substructure || metric_type == METRIC_Superstructure) {
+        float *D = reinterpret_cast<float*>(distances);
+
+        // only matched ids will be chosen, not to use heap
+        binary_distance_knn_mc(metric_type, x, xb.data(), n, ntotal, k, code_size,
+                               D, labels, bitset);
     } else {
-      hammings_knn_mc(x + s * code_size, xb.data(), nn, ntotal, k, code_size,
-                      distances + s * k, labels + s * k);
+
     }
-  }
 }
 
 size_t IndexBinaryFlat::remove_ids(const IDSelector& sel) {
@@ -80,7 +97,8 @@ void IndexBinaryFlat::reconstruct(idx_t key, uint8_t *recons) const {
 }
 
 void IndexBinaryFlat::range_search(idx_t n, const uint8_t *x, int radius,
-                   RangeSearchResult *result) const
+                   RangeSearchResult *result,
+                                   ConcurrentBitsetPtr bitset) const
 {
     hamming_range_search (x, xb.data(), n, ntotal, radius, code_size, result);
 }

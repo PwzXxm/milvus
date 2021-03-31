@@ -16,7 +16,7 @@
 #include <faiss/utils/distances.h>
 
 #include <faiss/impl/FaissAssert.h>
-
+#include <faiss/FaissHook.h>
 
 namespace faiss {
 
@@ -102,7 +102,8 @@ void IndexIVFPQR::search_preassigned (
         const idx_t *idx, const float *L1_dis,
         float *distances, idx_t *labels,
         bool store_pairs,
-        const IVFSearchParameters *params, IndexIVFStats *stats
+        const IVFSearchParameters *params, IndexIVFStats *stats,
+        ConcurrentBitsetPtr bitset
         ) const
 {
     uint64_t t0;

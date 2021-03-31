@@ -20,6 +20,7 @@
 #include <faiss/utils/utils.h>
 #include <faiss/impl/FaissAssert.h>
 #include <faiss/IndexPQ.h>
+#include <faiss/FaissHook.h>
 
 using namespace faiss;
 

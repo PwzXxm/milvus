@@ -20,6 +20,8 @@
 #include <faiss/impl/FaissAssert.h>
 #include <faiss/impl/AuxIndexStructures.h>
 #include <faiss/utils/hamming.h>
+#include <faiss/utils/BinaryDistance.h>
+#include <faiss/utils/Heap.h>
 
 namespace faiss {
 
@@ -221,7 +223,8 @@ DistanceComputer * IndexPQ::get_distance_computer() const {
 
 
 void IndexPQ::search (idx_t n, const float *x, idx_t k,
-                           float *distances, idx_t *labels) const
+                           float *distances, idx_t *labels,
+                      ConcurrentBitsetPtr bitset) const
 {
     FAISS_THROW_IF_NOT (is_trained);
     if (search_type == ST_PQ) {  // Simple PQ search
@@ -280,8 +283,8 @@ void IndexPQ::search (idx_t n, const float *x, idx_t k,
 
             if (search_type == ST_HE) {
 
-                hammings_knn_hc (&res, q_codes, codes.data(),
-                                 ntotal, pq.code_size, true);
+                binary_distance_knn_hc(faiss::METRIC_Hamming, &res, (const uint8_t *)q_codes, codes.data(),
+                                       ntotal, pq.code_size, bitset);
 
             } else if (search_type == ST_generalized_HE) {
 
@@ -333,7 +336,7 @@ static size_t polysemous_inner_loop (
     HammingComputer hc (q_code, code_size);
 
     for (int64_t bi = 0; bi < ntotal; bi++) {
-        int hd = hc.hamming (b_code);
+        int hd = hc.compute (b_code);
 
         if (hd < ht) {
             n_pass_i ++;
@@ -416,11 +419,8 @@ void IndexPQ::search_core_polysemous (idx_t n, const float *x, idx_t k,
                     (*this, dis_table_qi, q_code, k, heap_dis, heap_ids);
                 break;
             default:
-                if (pq.code_size % 8 == 0) {
-                    n_pass += polysemous_inner_loop<HammingComputerM8>
-                        (*this, dis_table_qi, q_code, k, heap_dis, heap_ids);
-                } else if (pq.code_size % 4 == 0) {
-                    n_pass += polysemous_inner_loop<HammingComputerM4>
+                if (pq.code_size % 4 == 0) {
+                    n_pass += polysemous_inner_loop<HammingComputerDefault>
                         (*this, dis_table_qi, q_code, k, heap_dis, heap_ids);
                 } else {
                     FAISS_THROW_FMT(
@@ -962,7 +962,8 @@ void MultiIndexQuantizer::train(idx_t n, const float *x)
 
 
 void MultiIndexQuantizer::search (idx_t n, const float *x, idx_t k,
-                                  float *distances, idx_t *labels) const {
+                                  float *distances, idx_t *labels,
+                                  ConcurrentBitsetPtr bitset) const {
     if (n == 0) return;
 
     // the allocation just below can be severe...
@@ -1115,7 +1116,8 @@ void MultiIndexQuantizer2::train(idx_t n, const float* x)
 
 void MultiIndexQuantizer2::search(
         idx_t n, const float* x, idx_t K,
-        float* distances, idx_t* labels) const
+        float* distances, idx_t* labels,
+        ConcurrentBitsetPtr bitset) const
 {
 
     if (n == 0) return;

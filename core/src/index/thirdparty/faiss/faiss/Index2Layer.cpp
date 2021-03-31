@@ -28,6 +28,7 @@
 #include <faiss/impl/AuxIndexStructures.h>
 #include <faiss/IndexFlat.h>
 #include <faiss/utils/distances.h>
+#include <faiss/FaissHook.h>
 
 
 /*
@@ -166,7 +167,8 @@ void Index2Layer::search(
     const float* /*x*/,
     idx_t /*k*/,
     float* /*distances*/,
-    idx_t* /*labels*/) const {
+    idx_t* /*labels*/,
+    ConcurrentBitsetPtr) const {
   FAISS_THROW_MSG("not implemented");
 }
 

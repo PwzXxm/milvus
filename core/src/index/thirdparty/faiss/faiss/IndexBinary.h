@@ -93,9 +93,11 @@ struct IndexBinary {
    * @param x           input vectors to search, size n * d / 8
    * @param labels      output labels of the NNs, size n*k
    * @param distances   output pairwise distances, size n*k
+   * @param bitset      flags to check the validity of vectors
    */
   virtual void search(idx_t n, const uint8_t *x, idx_t k,
-                      int32_t *distances, idx_t *labels) const = 0;
+                      int32_t *distances, idx_t *labels,
+                      ConcurrentBitsetPtr bitset = nullptr) const = 0;
 
   /** Query n vectors of dimension d to the index.
    *
@@ -112,7 +114,8 @@ struct IndexBinary {
    * @param result      result table
    */
   virtual void range_search(idx_t n, const uint8_t *x, int radius,
-                            RangeSearchResult *result) const;
+                            RangeSearchResult *result,
+                            ConcurrentBitsetPtr bitset = nullptr) const;
 
   /** Return the indexes of the k vectors closest to the query x.
    *
