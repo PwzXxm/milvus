@@ -687,7 +687,7 @@ void hamming_range_search (
     case 8: HC(HammingComputer8); break;
     case 16: HC(HammingComputer16); break;
     case 32: HC(HammingComputer32); break;
-    default: HC(HammingComputerDefault);
+    default: HC(HammingComputerDefault); break;
     }
 #undef HC
 }
