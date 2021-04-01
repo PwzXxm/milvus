@@ -158,5 +158,5 @@ if [[ ${RUN_CPPLINT} == "ON" ]]; then
 else
 
   # compile and build
-  make -j 8 install || exit 1
+  make V=1 -j8 install || exit 1
 fi

@@ -6,7 +6,9 @@
 
 add_library(faiss
   AutoTune.cpp
+  BuilderSuspend.cpp
   Clustering.cpp
+  FaissHook.cpp
   IVFlib.cpp
   Index.cpp
   Index2Layer.cpp
@@ -30,6 +32,7 @@ add_library(faiss
   IndexPQ.cpp
   IndexPreTransform.cpp
   IndexReplicas.cpp
+  IndexSQHybrid.cpp
   IndexScalarQuantizer.cpp
   IndexShards.cpp
   IndexRefine.cpp
@@ -44,6 +47,11 @@ add_library(faiss
   impl/PolysemousTraining.cpp
   impl/ProductQuantizer.cpp
   impl/ScalarQuantizer.cpp
+  impl/ScalarQuantizerDC.cpp
+  impl/ScalarQuantizerOp.cpp
+  impl/ScalarQuantizerDC_avx512.cpp
+  impl/ScalarQuantizerDC_avx.cpp
+  impl/ScalarQuantizer.cpp
   impl/index_read.cpp
   impl/index_write.cpp
   impl/pq4_fast_scan.cpp
@@ -55,10 +63,14 @@ add_library(faiss
   invlists/InvertedLists.cpp
   invlists/BlockInvertedLists.cpp
   invlists/InvertedListsIOHook.cpp
+  utils/BinaryDistance.cpp
+  utils/ConcurrentBitset.cpp
   utils/Heap.cpp
   utils/WorkerThread.cpp
   utils/distances.cpp
   utils/distances_simd.cpp
+  utils/distances_simd_avx.cpp
+  utils/distances_simd_avx512.cpp
   utils/extra_distances.cpp
   utils/hamming.cpp
   utils/partitioning.cpp
@@ -69,7 +81,9 @@ add_library(faiss
 
 set(FAISS_HEADERS
   AutoTune.h
+  BuilderSuspend.h
   Clustering.h
+  FaissHook.h
   IVFlib.h
   Index.h
   Index2Layer.h
@@ -93,6 +107,7 @@ set(FAISS_HEADERS
   IndexPQ.h
   IndexPreTransform.h
   IndexReplicas.h
+  IndexSQHybrid.h
   IndexScalarQuantizer.h
   IndexShards.h
   IndexRefine.h
@@ -111,6 +126,13 @@ set(FAISS_HEADERS
   impl/ProductQuantizer-inl.h
   impl/ProductQuantizer.h
   impl/ScalarQuantizer.h
+  impl/ScalarQuantizerDC_avx.h
+  impl/ScalarQuantizerCodec.h
+  impl/ScalarQuantizerCodec_avx512.h
+  impl/ScalarQuantizerDC_avx512.h
+  impl/ScalarQuantizerCodec_avx.h
+  impl/ScalarQuantizerDC.h
+  impl/ScalarQuantizerOp.h
   impl/ThreadedIndex-inl.h
   impl/ThreadedIndex.h
   impl/io.h
@@ -123,13 +145,19 @@ set(FAISS_HEADERS
   invlists/BlockInvertedLists.h
   invlists/DirectMap.h
   invlists/InvertedListsIOHook.h
+  utils/BinaryDistance.h
+  utils/ConcurrentBitset.h
   utils/Heap.h
   utils/AlignedTable.h
   utils/WorkerThread.h
   utils/distances.h
+  utils/distances_avx.h
+  utils/distances_avx512.h
   utils/extra_distances.h
   utils/hamming-inl.h
   utils/hamming.h
+  utils/instruction_set.h
+  utils/jaccard-inl.h
   utils/ordered_key_value.h
   utils/partitioning.h
   utils/quantize_lut.h
@@ -137,6 +165,8 @@ set(FAISS_HEADERS
   utils/simdlib.h
   utils/simdlib_emulated.h
   utils/simdlib_avx2.h
+  utils/substructure-inl.h
+  utils/superstructure-inl.h
   utils/utils.h
 )
 
@@ -148,13 +178,18 @@ if(NOT WIN32)
   list(APPEND FAISS_HEADERS invlists/OnDiskInvertedLists.h)
 endif()
 
-if(FAISS_OPT_LEVEL STREQUAL "avx2")
-  target_compile_options(faiss PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-mavx2 -mfma -mf16c -mpopcnt>)
-  set_target_properties(faiss PROPERTIES OUTPUT_NAME "faiss_avx2")
-elseif(FAISS_OPT_LEVEL STREQUAL "sse4")
-  target_compile_options(faiss PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-msse4 -mpopcnt>)
-  set_target_properties(faiss PROPERTIES OUTPUT_NAME "faiss_sse4")
-endif()
+# if(FAISS_OPT_LEVEL STREQUAL "avx2")
+#   target_compile_options(faiss PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-mavx2 -mfma -mf16c -mpopcnt>)
+#   set_target_properties(faiss PROPERTIES OUTPUT_NAME "faiss_avx2")
+# elseif(FAISS_OPT_LEVEL STREQUAL "avx512")
+#   target_compile_options(faiss PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-mavx512f -mavx512dq -mavx512bw>)
+#   set_target_properties(faiss PROPERTIES OUTPUT_NAME "faiss_avx512")
+# elseif(FAISS_OPT_LEVEL STREQUAL "sse4")
+#   target_compile_options(faiss PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-msse4 -mpopcnt>)
+#   set_target_properties(faiss PROPERTIES OUTPUT_NAME "faiss_sse4")
+# endif()
+
+target_compile_options(faiss PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-mavx2 -mfma -mf16c -mpopcnt -mavx512f -mavx512dq -mavx512bw -msse4 -mpopcnt>)
 
 # Handle `#include <faiss/foo.h>`.
 target_include_directories(faiss PUBLIC

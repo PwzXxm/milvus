@@ -511,10 +511,9 @@ macro(build_faiss)
             "${FAISS_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}faiss${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
     set(FAISS_CONFIGURE_ARGS
-            "--prefix=${FAISS_PREFIX}"
             "CFLAGS=${EP_C_FLAGS}"
-            "CXXFLAGS=${EP_CXX_FLAGS} -mf16c -O3"
-            --without-python)
+            "CXXFLAGS=${EP_CXX_FLAGS} -mf16c -O3")
+            #"--prefix=${FAISS_PREFIX}"
 
     if (FAISS_WITH_MKL)
         set(FAISS_CONFIGURE_ARGS ${FAISS_CONFIGURE_ARGS}
@@ -534,13 +533,14 @@ macro(build_faiss)
 
     if (KNOWHERE_GPU_VERSION)
         set(FAISS_CONFIGURE_ARGS ${FAISS_CONFIGURE_ARGS}
-                "--with-cuda=${CUDA_TOOLKIT_ROOT_DIR}"
-                "--with-cuda-arch=-gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_61,code=sm_61 -gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_75,code=sm_75"
+                "-DFAISS_ENABLE_GPU=ON"
+                "-DCUDAToolkit_ROOT=${CUDA_TOOLKIT_ROOT_DIR}"
+                "-DCMAKE_CUDA_ARCHITECTURES=-gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_61,code=sm_61 -gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_75,code=sm_75"
                 )
     else ()
         set(FAISS_CONFIGURE_ARGS ${FAISS_CONFIGURE_ARGS}
                 "CPPFLAGS=-DUSE_CPU"
-                --without-cuda)
+                "-DFAISS_ENABLE_GPU=OFF")
     endif ()
 
     message(STATUS "Building FAISS with configure args -${FAISS_CONFIGURE_ARGS}")
@@ -566,16 +566,15 @@ macro(build_faiss)
         externalproject_add(faiss_ep
                 DOWNLOAD_COMMAND
                 ""
+                PREFIX
+                ${FAISS_PREFIX}
                 SOURCE_DIR
                 ${FAISS_SOURCE_DIR}
                 ${EP_LOG_OPTIONS}
-                CONFIGURE_COMMAND
-                "./configure"
+                CMAKE_ARGS
                 ${FAISS_CONFIGURE_ARGS}
                 BUILD_COMMAND
                 ${MAKE} ${MAKE_BUILD_ARGS} all
-                BUILD_IN_SOURCE
-                1
                 INSTALL_COMMAND
                 ${MAKE} install
                 BUILD_BYPRODUCTS

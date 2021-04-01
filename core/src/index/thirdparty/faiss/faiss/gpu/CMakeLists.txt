@@ -16,6 +16,7 @@ target_sources(faiss PRIVATE
   GpuIndexIVFFlat.cu
   GpuIndexIVFPQ.cu
   GpuIndexIVFScalarQuantizer.cu
+  GpuIndexIVFSQHybrid.cu
   GpuResources.cpp
   StandardGpuResources.cpp
   impl/BinaryDistance.cu
@@ -28,6 +29,7 @@ target_sources(faiss PRIVATE
   impl/IVFBase.cu
   impl/IVFFlat.cu
   impl/IVFFlatScan.cu
+  impl/IVFFlatScanLargeK.cu
   impl/IVFInterleaved.cu
   impl/IVFPQ.cu
   impl/IVFUtils.cu
@@ -112,6 +114,7 @@ set(FAISS_GPU_HEADERS
   GpuIndexIVF.h
   GpuIndexIVFPQ.h
   GpuIndexIVFScalarQuantizer.h
+  GpuIndexIVFSQHybrid.h
   GpuIndicesOptions.h
   GpuResources.h
   StandardGpuResources.h
@@ -127,6 +130,7 @@ set(FAISS_GPU_HEADERS
   impl/IVFBase.cuh
   impl/IVFFlat.cuh
   impl/IVFFlatScan.cuh
+  impl/IVFFlatScanLargeK.cuh
   impl/IVFPQ.cuh
   impl/IVFUtils.cuh
   impl/L2Norm.cuh
@@ -140,6 +144,7 @@ set(FAISS_GPU_HEADERS
   impl/RemapIndices.h
   impl/VectorResidual.cuh
   utils/blockselect/BlockSelectImpl.cuh
+  utils/BlockSelectImpl.cuh
   utils/BlockSelectKernel.cuh
   utils/Comparators.cuh
   utils/ConversionOperators.cuh
