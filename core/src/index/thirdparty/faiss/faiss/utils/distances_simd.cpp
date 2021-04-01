@@ -370,11 +370,6 @@ void fvec_inner_products_ny (float * dis, const float * x,
 }
 
 
-
-#endif
-
-#ifdef defined(__SSE3__) // But not AVX
-
 float fvec_L1_sse (const float * x, const float * y, size_t d)
 {
     return fvec_L1_ref (x, y, d);

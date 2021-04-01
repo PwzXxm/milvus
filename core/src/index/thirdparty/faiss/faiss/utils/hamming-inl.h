@@ -5,6 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#include <faiss/utils/BinaryDistance.h>
+#include <faiss/utils/distances_avx.h>
+
 namespace faiss {
 
 extern const uint8_t lookup8bit[256];

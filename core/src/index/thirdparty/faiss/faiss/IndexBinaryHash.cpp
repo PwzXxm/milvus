@@ -419,7 +419,7 @@ search_1_query_multihash(const IndexBinaryMultiHash & index, const uint8_t *xi,
 
 void IndexBinaryMultiHash::range_search(idx_t n, const uint8_t *x, int radius,
                                    RangeSearchResult *result,
-                                   ConcurrentBitsetPtr bitset= nullptr) const
+                                   ConcurrentBitsetPtr bitset) const
 {
 
     size_t nlist = 0, ndis = 0, n0 = 0;

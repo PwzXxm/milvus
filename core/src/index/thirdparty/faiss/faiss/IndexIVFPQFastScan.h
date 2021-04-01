@@ -87,7 +87,8 @@ struct IndexIVFPQFastScan: IndexIVF {
 
     void search(
             idx_t n, const float* x, idx_t k,
-            float* distances, idx_t* labels) const override;
+            float* distances, idx_t* labels,
+            ConcurrentBitsetPtr bitset = nullptr) const override;
 
     // prepare look-up tables
 

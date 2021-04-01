@@ -14,6 +14,7 @@
 #include <faiss/impl/FaissAssert.h>
 #include <faiss/impl/AuxIndexStructures.h>
 #include <faiss/IndexFlat.h>
+#include <faiss/FaissHook.h>
 
 namespace faiss {
 
@@ -97,7 +98,8 @@ static void reorder_2_heaps (
 
 void IndexRefine::search (
               idx_t n, const float *x, idx_t k,
-              float *distances, idx_t *labels) const
+              float *distances, idx_t *labels,
+              ConcurrentBitsetPtr bitset) const
 {
     FAISS_THROW_IF_NOT (is_trained);
     idx_t k_base = idx_t (k * k_factor);
@@ -203,7 +205,8 @@ IndexRefineFlat::IndexRefineFlat():
 
 void IndexRefineFlat::search (
               idx_t n, const float *x, idx_t k,
-              float *distances, idx_t *labels) const
+              float *distances, idx_t *labels,
+              ConcurrentBitsetPtr bitset) const
 {
     FAISS_THROW_IF_NOT (is_trained);
     idx_t k_base = idx_t (k * k_factor);

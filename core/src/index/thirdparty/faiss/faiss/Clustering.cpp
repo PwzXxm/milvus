@@ -424,7 +424,7 @@ void Clustering::train_encoded (idx_t nx, const uint8_t *x_in,
             double t0s = getmillisecs();
 
             if (!codec) {
-                index.assign (nx, reinterpret_cast<const float *>(x), 1,
+                index.assign (nx, reinterpret_cast<const float *>(x),
                               assign.get(), dis.get());
             } else {
                 // search by blocks of decode_block_size vectors

@@ -14,10 +14,6 @@
 
 #include <omp.h>
 
-#ifdef __SSE__
-#include <immintrin.h>
-#endif
-
 #include <faiss/FaissHook.h>
 #include <faiss/utils/utils.h>
 #include <faiss/impl/FaissAssert.h>
@@ -54,29 +50,29 @@ ScalarQuantizer::ScalarQuantizer
 }
 
 ScalarQuantizer::ScalarQuantizer ():
-    qtype(QT_8bit),
-    rangestat(RS_minmax), rangestat_arg(0), d(0), bits(0), code_size(0)
+    qtype(QuantizerType::QT_8bit),
+    rangestat(RangeStat::RS_minmax), rangestat_arg(0), d(0), bits(0), code_size(0)
 {}
 
 void ScalarQuantizer::set_derived_sizes ()
 {
     switch (qtype) {
-      case QT_8bit:
-      case QT_8bit_uniform:
-      case QT_8bit_direct:
+      case QuantizerType::QT_8bit:
+      case QuantizerType::QT_8bit_uniform:
+      case QuantizerType::QT_8bit_direct:
         code_size = d;
         bits = 8;
         break;
-      case QT_4bit:
-      case QT_4bit_uniform:
+      case QuantizerType::QT_4bit:
+      case QuantizerType::QT_4bit_uniform:
         code_size = (d + 1) / 2;
         bits = 4;
         break;
-      case QT_6bit:
+      case QuantizerType::QT_6bit:
         code_size = (d * 6 + 7) / 8;
         bits = 6;
         break;
-      case QT_fp16:
+      case QuantizerType::QT_fp16:
         code_size = d * 2;
         bits = 16;
         break;
@@ -86,23 +82,23 @@ void ScalarQuantizer::set_derived_sizes ()
 void ScalarQuantizer::train (size_t n, const float *x)
 {
     int bit_per_dim =
-        qtype == QT_4bit_uniform ? 4 :
-        qtype == QT_4bit ? 4 :
-        qtype == QT_6bit ? 6 :
-        qtype == QT_8bit_uniform ? 8 :
-        qtype == QT_8bit ? 8 : -1;
+        qtype == QuantizerType::QT_4bit_uniform ? 4 :
+        qtype == QuantizerType::QT_4bit ? 4 :
+        qtype == QuantizerType::QT_6bit ? 6 :
+        qtype == QuantizerType::QT_8bit_uniform ? 8 :
+        qtype == QuantizerType::QT_8bit ? 8 : -1;
 
     switch (qtype) {
-    case QT_4bit_uniform: case QT_8bit_uniform:
+    case QuantizerType::QT_4bit_uniform: case QuantizerType::QT_8bit_uniform:
         train_Uniform (rangestat, rangestat_arg,
                        n * d, 1 << bit_per_dim, x, trained);
         break;
-    case QT_4bit: case QT_8bit: case QT_6bit:
+    case QuantizerType::QT_4bit: case QuantizerType::QT_8bit: case QuantizerType::QT_6bit:
         train_NonUniform (rangestat, rangestat_arg,
                           n, d, 1 << bit_per_dim, x, trained);
         break;
-    case QT_fp16:
-    case QT_8bit_direct:
+    case QuantizerType::QT_fp16:
+    case QuantizerType::QT_8bit_direct:
         // no training necessary
         break;
     }
@@ -137,7 +133,7 @@ void ScalarQuantizer::train_residual(size_t n,
 }
 
 
-ScalarQuantizer::Quantizer *ScalarQuantizer::select_quantizer () const
+Quantizer *ScalarQuantizer::select_quantizer () const
 {
     /* use hook to decide use AVX512 or not */
     sq_sel_quantizer(qtype, d, trained);

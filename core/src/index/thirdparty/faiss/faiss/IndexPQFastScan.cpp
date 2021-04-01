@@ -191,7 +191,8 @@ void IndexPQFastScan::compute_quantized_LUT(
 
 void IndexPQFastScan::search(
                 idx_t n, const float* x, idx_t k,
-                float* distances, idx_t* labels) const
+                float* distances, idx_t* labels,
+                ConcurrentBitsetPtr bitset) const
 {
     if (metric_type == METRIC_L2) {
         search_dispatch_implem<true>(n, x, k, distances, labels);

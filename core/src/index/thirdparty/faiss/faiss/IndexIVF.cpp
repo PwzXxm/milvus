@@ -272,17 +272,6 @@ void IndexIVF::add_with_ids (idx_t n, const float * x, const idx_t *xids)
     ntotal += n;
 }
 
-void IndexIVF::to_readonly() {
-    if (is_readonly()) return;
-    auto readonly_lists = this->invlists->to_readonly();
-    if (!readonly_lists) return;
-    this->replace_invlists(readonly_lists, true);
-}
-
-bool IndexIVF::is_readonly() const {
-    return this->invlists->is_readonly();
-}
-
 void IndexIVF::backup_quantizer() {
     this->quantizer_backup = quantizer;
 }
@@ -320,7 +309,7 @@ void IndexIVF::search (idx_t n, const float *x, idx_t k,
 
 
     // search function for a subset of queries
-    auto sub_search_func = [this, k]
+    auto sub_search_func = [this, k, bitset]
             (idx_t n, const float *x, float *distances, idx_t *labels,
              IndexIVFStats *ivf_stats) {
 
@@ -619,7 +608,7 @@ void IndexIVF::search_preassigned (idx_t n, const float *x, idx_t k,
                 init_result (local_dis.data(), local_idx.data());
                 ndis += scan_one_list (
                         keys [ij], coarse_dis[ij],
-                        local_dis.data(), local_idx.data());
+                        local_dis.data(), local_idx.data(), bitset);
 #pragma omp critical
                 {
                     add_local_results (local_dis.data(), local_idx.data(),

@@ -348,7 +348,7 @@ void binary_distance_knn_hc (
                     T *val_ = value + thread_no * thread_heap_size + i * k;
                     int64_t *ids_ = labels + thread_no * thread_heap_size + i * k;
                     if (C::cmp(val_[0], dis)) {
-                        faiss::heap_swap_top<C>(k, val_, ids_, dis, j);
+                        faiss::heap_replace_top<C>(k, val_, ids_, dis, j);
                     }
                 }
             }
@@ -363,7 +363,7 @@ void binary_distance_knn_hc (
                 int64_t *labels_x_t = labels_x + t * thread_heap_size;
                 for (size_t j = 0; j < k; j++) {
                     if (C::cmp(value_x[0], value_x_t[j])) {
-                        faiss::heap_swap_top<C>(k, value_x, labels_x, value_x_t[j], labels_x_t[j]);
+                        faiss::heap_replace_top<C>(k, value_x, labels_x, value_x_t[j], labels_x_t[j]);
                     }
                 }
             }
@@ -396,7 +396,7 @@ void binary_distance_knn_hc (
                     if (!bitset || !bitset->test(j)) {
                         dis = hc.compute (bs2_);
                         if (C::cmp(bh_val_[0], dis)) {
-                            faiss::heap_swap_top<C>(k, bh_val_, bh_ids_, dis, j);
+                            faiss::heap_replace_top<C>(k, bh_val_, bh_ids_, dis, j);
                         }
                     }
                 }

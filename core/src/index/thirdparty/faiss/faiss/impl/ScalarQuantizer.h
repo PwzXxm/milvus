@@ -131,7 +131,7 @@ struct IVFSQScannerIP: InvertedListScanner {
 
                 if (accu > simi [0]) {
                     int64_t id = store_pairs ? (list_no << 32 | j) : ids[j];
-                    minheap_swap_top (k, simi, idxi, accu, id);
+                    minheap_replace_top (k, simi, idxi, accu, id);
                     nup++;
                 }
             }
@@ -218,7 +218,7 @@ struct IVFSQScannerL2: InvertedListScanner {
 
                 if (dis < simi [0]) {
                     int64_t id = store_pairs ? (list_no << 32 | j) : ids[j];
-                    maxheap_swap_top (k, simi, idxi, dis, id);
+                    maxheap_replace_top (k, simi, idxi, dis, id);
                     nup++;
                 }
             }

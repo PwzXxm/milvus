@@ -420,7 +420,7 @@ struct IVFBinaryScannerJaccard: BinaryInvertedListScanner {
 
                 if (dis < psimi[0]) {
                     idx_t id = store_pairs ? (list_no << 32 | j) : ids[j];
-                    heap_swap_top<C> (k, psimi, idxi, dis, id);
+                    heap_replace_top<C> (k, psimi, idxi, dis, id);
                     nup++;
                 }
             }
