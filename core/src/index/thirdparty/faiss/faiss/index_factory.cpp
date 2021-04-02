@@ -490,7 +490,7 @@ Index *index_factory (int d, const char *description_in, MetricType metric)
     return index;
 }
 
-IndexBinary *index_binary_factory(int d, const char *description, MetricType metric = METRIC_L2)
+IndexBinary *index_binary_factory(int d, const char *description, MetricType metric)
 {
     IndexBinary *index = nullptr;
 
