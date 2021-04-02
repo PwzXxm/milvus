@@ -266,7 +266,7 @@ void compute_PQ_dis_tables_dsub2(
  * elkan
  ***************************************************************************/
 
-/** Return the nearest neighors of each of the nx vectors x among the ny
+/** Return the nearest neighbors of each of the nx vectors x among the ny
  *
  * @param x    query vectors, size nx * d
  * @param y    database vectors, size ny * d
