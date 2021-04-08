@@ -20,6 +20,7 @@
 #include <faiss/gpu/utils/PtxUtils.cuh>
 #include <faiss/gpu/utils/Reductions.cuh>
 #include <faiss/gpu/utils/StaticUtils.h>
+#include <faiss/impl/ScalarQuantizerOp.h>
 
 namespace faiss { namespace gpu {
 
@@ -202,8 +203,8 @@ runIVFFlatScanTile(GpuResources* res,
   // Check the amount of shared memory per block available based on our type is
   // sufficient
   if (scalarQ &&
-      (scalarQ->qtype == ScalarQuantizer::QuantizerType::QT_8bit ||
-       scalarQ->qtype == ScalarQuantizer::QuantizerType::QT_4bit)) {
+      (scalarQ->qtype == QuantizerType::QT_8bit ||
+       scalarQ->qtype == QuantizerType::QT_4bit)) {
     int maxDim = getMaxSharedMemPerBlockCurrentDevice() /
       (sizeof(float) * 2);
 
@@ -252,48 +253,48 @@ runIVFFlatScanTile(GpuResources* res,
     HANDLE_METRICS;
   } else {
     switch (scalarQ->qtype) {
-      case ScalarQuantizer::QuantizerType::QT_8bit:
+      case QuantizerType::QT_8bit:
       {
-        Codec<ScalarQuantizer::QuantizerType::QT_8bit, 1>
+        Codec<(int)QuantizerType::QT_8bit, 1>
           codec(scalarQ->code_size,
                 scalarQ->gpuTrained.data(),
                 scalarQ->gpuTrained.data() + dim);
         HANDLE_METRICS;
       }
       break;
-      case ScalarQuantizer::QuantizerType::QT_8bit_uniform:
+      case QuantizerType::QT_8bit_uniform:
       {
-        Codec<ScalarQuantizer::QuantizerType::QT_8bit_uniform, 1>
+        Codec<(int)QuantizerType::QT_8bit_uniform, 1>
           codec(scalarQ->code_size, scalarQ->trained[0], scalarQ->trained[1]);
         HANDLE_METRICS;
       }
       break;
-      case ScalarQuantizer::QuantizerType::QT_fp16:
+      case QuantizerType::QT_fp16:
       {
-        Codec<ScalarQuantizer::QuantizerType::QT_fp16, 1>
+        Codec<(int)QuantizerType::QT_fp16, 1>
           codec(scalarQ->code_size);
         HANDLE_METRICS;
       }
       break;
-      case ScalarQuantizer::QuantizerType::QT_8bit_direct:
+      case QuantizerType::QT_8bit_direct:
       {
-        Codec<ScalarQuantizer::QuantizerType::QT_8bit_direct, 1>
+        Codec<(int)QuantizerType::QT_8bit_direct, 1>
           codec(scalarQ->code_size);
         HANDLE_METRICS;
       }
       break;
-      case ScalarQuantizer::QuantizerType::QT_4bit:
+      case QuantizerType::QT_4bit:
       {
-        Codec<ScalarQuantizer::QuantizerType::QT_4bit, 1>
+        Codec<(int)QuantizerType::QT_4bit, 1>
           codec(scalarQ->code_size,
                 scalarQ->gpuTrained.data(),
                 scalarQ->gpuTrained.data() + dim);
         HANDLE_METRICS;
       }
       break;
-      case ScalarQuantizer::QuantizerType::QT_4bit_uniform:
+      case QuantizerType::QT_4bit_uniform:
       {
-        Codec<ScalarQuantizer::QuantizerType::QT_4bit_uniform, 1>
+        Codec<(int)QuantizerType::QT_4bit_uniform, 1>
           codec(scalarQ->code_size, scalarQ->trained[0], scalarQ->trained[1]);
         HANDLE_METRICS;
       }

@@ -9,7 +9,6 @@
 #include <faiss/gpu/impl/L2Select.cuh>
 #include <stdio.h>
 #include <cstring>
-#include <faiss/gpu/utils/MemorySpace.h>
 #include <faiss/gpu/StandardGpuResources.h>
 #include <faiss/gpu/utils/DeviceTensor.cuh>
 #include <faiss/gpu/utils/CopyUtils.cuh>

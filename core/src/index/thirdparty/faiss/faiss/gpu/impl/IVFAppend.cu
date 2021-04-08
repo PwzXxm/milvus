@@ -215,48 +215,48 @@ runIVFFlatAppend(Tensor<int, 1, true>& listIds,
     RUN_APPEND;
   } else {
     switch (scalarQ->qtype) {
-      case ScalarQuantizer::QuantizerType::QT_8bit:
+      case QuantizerType::QT_8bit:
       {
-        Codec<ScalarQuantizer::QuantizerType::QT_8bit, 1>
+        Codec<(int)QuantizerType::QT_8bit, 1>
           codec(scalarQ->code_size,
                 scalarQ->gpuTrained.data(),
                 scalarQ->gpuTrained.data() + dim);
         RUN_APPEND;
       }
       break;
-      case ScalarQuantizer::QuantizerType::QT_8bit_uniform:
+      case QuantizerType::QT_8bit_uniform:
       {
-        Codec<ScalarQuantizer::QuantizerType::QT_8bit_uniform, 1>
+        Codec<(int)QuantizerType::QT_8bit_uniform, 1>
           codec(scalarQ->code_size, scalarQ->trained[0], scalarQ->trained[1]);
         RUN_APPEND;
       }
       break;
-      case ScalarQuantizer::QuantizerType::QT_fp16:
+      case QuantizerType::QT_fp16:
       {
-        Codec<ScalarQuantizer::QuantizerType::QT_fp16, 1>
+        Codec<(int)QuantizerType::QT_fp16, 1>
           codec(scalarQ->code_size);
         RUN_APPEND;
       }
       break;
-      case ScalarQuantizer::QuantizerType::QT_8bit_direct:
+      case QuantizerType::QT_8bit_direct:
       {
-        Codec<ScalarQuantizer::QuantizerType::QT_8bit_direct, 1>
+        Codec<(int)QuantizerType::QT_8bit_direct, 1>
           codec(scalarQ->code_size);
         RUN_APPEND;
       }
       break;
-      case ScalarQuantizer::QuantizerType::QT_4bit:
+      case QuantizerType::QT_4bit:
       {
-        Codec<ScalarQuantizer::QuantizerType::QT_4bit, 1>
+        Codec<(int)QuantizerType::QT_4bit, 1>
           codec(scalarQ->code_size,
                 scalarQ->gpuTrained.data(),
                 scalarQ->gpuTrained.data() + dim);
         RUN_APPEND;
       }
       break;
-      case ScalarQuantizer::QuantizerType::QT_4bit_uniform:
+      case QuantizerType::QT_4bit_uniform:
       {
-        Codec<ScalarQuantizer::QuantizerType::QT_4bit_uniform, 1>
+        Codec<(int)QuantizerType::QT_4bit_uniform, 1>
           codec(scalarQ->code_size, scalarQ->trained[0], scalarQ->trained[1]);
         RUN_APPEND;
       }
@@ -497,9 +497,9 @@ runIVFFlatInterleavedAppend(Tensor<int, 1, true>& listIds,
   FAISS_ASSERT(scalarQ->bits == 16 || scalarQ->bits <= 8);
 
   if (scalarQ->bits == 16) {
-    FAISS_ASSERT(scalarQ->qtype == ScalarQuantizer::QuantizerType::QT_fp16);
+    FAISS_ASSERT(scalarQ->qtype == QuantizerType::QT_fp16);
 
-    using CodecT = Codec<ScalarQuantizer::QuantizerType::QT_fp16, 1>;
+    using CodecT = Codec<(int)QuantizerType::QT_fp16, 1>;
     CodecT codec(scalarQ->qtype);
 
     DeviceTensor<half, 2, true> encodedVecs(
@@ -515,9 +515,9 @@ runIVFFlatInterleavedAppend(Tensor<int, 1, true>& listIds,
       {vecs.getSize(0), vecs.getSize(1)});
 
     switch (scalarQ->qtype) {
-      case ScalarQuantizer::QuantizerType::QT_8bit:
+      case QuantizerType::QT_8bit:
       {
-        using CodecT = Codec<ScalarQuantizer::QuantizerType::QT_8bit, 1>;
+        using CodecT = Codec<(int)QuantizerType::QT_8bit, 1>;
         CodecT codec(scalarQ->code_size,
                      scalarQ->gpuTrained.data(),
                      scalarQ->gpuTrained.data() + dim);
@@ -526,27 +526,27 @@ runIVFFlatInterleavedAppend(Tensor<int, 1, true>& listIds,
         RUN_APPEND(CodecT::EncodeT, CodecT::kEncodeBits, encodedVecs);
       }
       break;
-      case ScalarQuantizer::QuantizerType::QT_8bit_uniform:
+      case QuantizerType::QT_8bit_uniform:
       {
-        using CodecT = Codec<ScalarQuantizer::QuantizerType::QT_8bit_uniform, 1>;
+        using CodecT = Codec<(int)QuantizerType::QT_8bit_uniform, 1>;
         CodecT codec(scalarQ->code_size, scalarQ->trained[0], scalarQ->trained[1]);
 
         runSQEncode(vecs, encodedVecs, codec, stream);
         RUN_APPEND(CodecT::EncodeT, CodecT::kEncodeBits, encodedVecs);
       }
       break;
-      case ScalarQuantizer::QuantizerType::QT_8bit_direct:
+      case QuantizerType::QT_8bit_direct:
       {
-        using CodecT = Codec<ScalarQuantizer::QuantizerType::QT_8bit_direct, 1>;
+        using CodecT = Codec<(int)QuantizerType::QT_8bit_direct, 1>;
         CodecT codec(scalarQ->code_size);
 
         runSQEncode(vecs, encodedVecs, codec, stream);
         RUN_APPEND(CodecT::EncodeT, CodecT::kEncodeBits, encodedVecs);
       }
       break;
-      case ScalarQuantizer::QuantizerType::QT_6bit:
+      case QuantizerType::QT_6bit:
       {
-        using CodecT = Codec<ScalarQuantizer::QuantizerType::QT_6bit, 1>;
+        using CodecT = Codec<(int)QuantizerType::QT_6bit, 1>;
         CodecT codec(scalarQ->code_size,
                      scalarQ->gpuTrained.data(),
                      scalarQ->gpuTrained.data() + dim);
@@ -555,9 +555,9 @@ runIVFFlatInterleavedAppend(Tensor<int, 1, true>& listIds,
         RUN_APPEND(CodecT::EncodeT, CodecT::kEncodeBits, encodedVecs);
       }
       break;
-      case ScalarQuantizer::QuantizerType::QT_4bit:
+      case QuantizerType::QT_4bit:
       {
-        using CodecT = Codec<ScalarQuantizer::QuantizerType::QT_4bit, 1>;
+        using CodecT = Codec<(int)QuantizerType::QT_4bit, 1>;
         CodecT codec(scalarQ->code_size,
                      scalarQ->gpuTrained.data(),
                      scalarQ->gpuTrained.data() + dim);
@@ -566,9 +566,9 @@ runIVFFlatInterleavedAppend(Tensor<int, 1, true>& listIds,
         RUN_APPEND(CodecT::EncodeT, CodecT::kEncodeBits, encodedVecs);
       }
       break;
-      case ScalarQuantizer::QuantizerType::QT_4bit_uniform:
+      case QuantizerType::QT_4bit_uniform:
       {
-        using CodecT = Codec<ScalarQuantizer::QuantizerType::QT_4bit_uniform, 1>;
+        using CodecT = Codec<(int)QuantizerType::QT_4bit_uniform, 1>;
         CodecT codec(scalarQ->code_size, scalarQ->trained[0], scalarQ->trained[1]);
 
         runSQEncode(vecs, encodedVecs, codec, stream);

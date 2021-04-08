@@ -91,8 +91,15 @@ GpuIndexIVFFlat::copyFrom(const faiss::IndexIVFFlat* index) {
                            ivfFlatConfig_.indicesOptions,
                            config_.memorySpace));
 
-  // Copy all of the IVF data
-  index_->copyInvertedListsFrom(index->invlists);
+  if (ReadOnlyArrayInvertedLists* rol = dynamic_cast<ReadOnlyArrayInvertedLists*>(ivf)) {
+    index_->copyCodeVectorsFromCpu((const float* )(rol->pin_readonly_codes->data),
+                                   (const long *)(rol->pin_readonly_ids->data), rol->readonly_length);
+    /* double t0 = getmillisecs(); */
+    /* std::cout << "Readonly Takes " << getmillisecs() - t0 << " ms" << std::endl; */
+  } else {
+    // Copy all of the IVF data
+    index_->copyInvertedListsFrom(index->invlists);
+  }
 }
 
 void

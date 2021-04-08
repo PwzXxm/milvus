@@ -62,7 +62,7 @@ class IVFBase {
   /// Return the list indices of a particular list back to the CPU
   std::vector<Index::idx_t> getListIndices(int listId) const;
 
-  DeviceVector<unsigned char>* getTrainedData() { return deviceTrained_.get(); };
+  DeviceVector<uint8_t>* getTrainedData() { return deviceTrained_.get(); };
 
     /// Return the encoded vectors of a particular list back to the CPU
   std::vector<uint8_t> getListVectorData(int listId, bool gpuFormat) const;
@@ -207,6 +207,10 @@ protected:
   /// resizing (and potential re-allocation) of deviceList*_
   std::vector<std::unique_ptr<DeviceIVFList>> deviceListData_;
   std::vector<std::unique_ptr<DeviceIVFList>> deviceListIndices_;
+
+  std::unique_ptr<DeviceIVFList> deviceData_;
+  std::unique_ptr<DeviceIVFList> deviceIndices_;
+  std::unique_ptr<DeviceIVFList> deviceTrained_;
 
   /// If we are storing indices on the CPU (indicesOptions_ is
   /// INDICES_CPU), then this maintains a CPU-side map of what

@@ -30,13 +30,29 @@ class IVFFlat : public IVFBase {
 
   ~IVFFlat() override;
 
+  void copyCodeVectorsFromCpu(const float* vecs,
+                              const long* indices,
+                              const std::vector<size_t>& list_length);
+
+
   /// Find the approximate k nearest neigbors for `queries` against
   /// our database
   void query(Tensor<float, 2, true>& queries,
+             Tensor<uint8_t, 1, true>& bitset,
              int nprobe,
              int k,
              Tensor<float, 2, true>& outDistances,
              Tensor<Index::idx_t, 2, true>& outIndices);
+                          
+  // QuerySlicing
+  void query(Tensor<float, 2, true>& queries,
+             Tensor<uint8_t, 1, true>& bitset,
+             int nprobe,
+             int k,
+             Tensor<float, 2, true>& outDistances,
+             Tensor<Index::idx_t, 2, true>& outIndices, 
+             float* distances,
+             Index::idx_t* labels);
 
  protected:
   /// Returns the number of bytes in which an IVF list containing numVecs

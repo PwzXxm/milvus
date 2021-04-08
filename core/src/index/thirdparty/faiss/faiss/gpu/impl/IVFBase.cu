@@ -116,9 +116,9 @@ IVFBase::reset() {
   maxListLength_ = 0;
 
 
-  deviceData_.reset(new DeviceVector<unsigned char>(space_));
-  deviceIndices_.reset(new DeviceVector<unsigned char>(space_));
-  deviceTrained_.reset(new DeviceVector<unsigned char>(space_));
+  deviceData_.reset(new DeviceVector<DeviceIVFList>(space_));
+  deviceIndices_.reset(new DeviceVector<DeviceIVFList>(space_));
+  deviceTrained_.reset(new DeviceVector<DeviceIVFList>(space_));
 }
 
 int
@@ -720,7 +720,7 @@ IVFBase::addTrainedDataFromCpu_(const uint8_t* trained,
                                 size_t numData) {
   auto stream = resources_->getDefaultStreamCurrentDevice();
 
-  deviceTrained_->append((unsigned char*)trained,
+  deviceTrained_->append((uint8_t *)trained,
                          numData,
                          stream,
                          true);

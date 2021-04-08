@@ -41,7 +41,7 @@ GpuIndexIVFScalarQuantizer::GpuIndexIVFScalarQuantizer(
   GpuResourcesProvider* provider,
   int dims,
   int nlist,
-  faiss::ScalarQuantizer::QuantizerType qtype,
+  faiss::QuantizerType qtype,
   faiss::MetricType metric,
   bool encodeResidual,
   GpuIndexIVFScalarQuantizerConfig config) :
@@ -103,9 +103,13 @@ GpuIndexIVFScalarQuantizer::copyFrom(
                            ivfSQConfig_.interleavedLayout,
                            ivfSQConfig_.indicesOptions,
                            config_.memorySpace));
-
-  // Copy all of the IVF data
-  index_->copyInvertedListsFrom(index->invlists);
+  if(ReadOnlyArrayInvertedLists* rol = dynamic_cast<ReadOnlyArrayInvertedLists*>(ivf)) {
+    index_->copyCodeVectorsFromCpu((const float *)(rol->pin_readonly_codes->data),
+                                   (const long *)(rol->pin_readonly_ids->data), rol->readonly_length);
+  } else {
+    // Copy all of the IVF data
+    index_->copyInvertedListsFrom(index->invlists);
+  }
 }
 
 void

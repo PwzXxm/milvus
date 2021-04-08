@@ -93,6 +93,20 @@ void runCalcListOffsets(GpuResources* res,
                         cudaStream_t stream);
 
 /// Performs a first pass of k-selection on the results
+void runPass1SelectLists(thrust::device_vector<void*>& listIndices,
+                         IndicesOptions indicesOptions,
+                         Tensor<int, 2, true>& prefixSumOffsets,
+                         Tensor<int, 2, true>& topQueryToCentroid,
+                         Tensor<uint8_t, 1, true>& bitset,
+                         Tensor<float, 1, true>& distance,
+                         int nprobe,
+                         int k,
+                         bool chooseLargest,
+                         Tensor<float, 3, true>& heapDistances,
+                         Tensor<int, 3, true>& heapIndices,
+                         cudaStream_t stream);
+
+/// With min distance limit
 void runPass1SelectLists(Tensor<int, 2, true>& prefixSumOffsets,
                          Tensor<float, 1, true>& distance,
                          int nprobe,
@@ -100,6 +114,7 @@ void runPass1SelectLists(Tensor<int, 2, true>& prefixSumOffsets,
                          bool chooseLargest,
                          Tensor<float, 3, true>& heapDistances,
                          Tensor<int, 3, true>& heapIndices,
+                         Tensor<float, 2, true>& minDistances,
                          cudaStream_t stream);
 
 /// Performs a final pass of k-selection on the results, producing the

@@ -244,16 +244,16 @@ GpuIndexFlat::searchImpl_(int n,
     makeTempAlloc(AllocType::Other, stream),
     {n, k});
 
-    // Copy bitset to GPU
-    if (!bitset) {
-        auto bitsetDevice = toDevice<uint8_t, 1>(resources_, device_, nullptr, stream, {0});
-        data_->query(queries, bitsetDevice, k, metric_type, metric_arg, outDistances, outIntLabels, true);
-    } else {
-        auto bitsetDevice = toDevice<uint8_t, 1>(resources_, device_,
-                                                 const_cast<uint8_t*>(bitset->data()), stream,
-                                                 {(int) bitset->size()});
-        data_->query(queries, bitsetDevice, k, metric_type, metric_arg, outDistances, outIntLabels, true);
-    }
+  // Copy bitset to GPU
+  if (!bitset) {
+      auto bitsetDevice = toDevice<uint8_t, 1>(resources_, device_, nullptr, stream, {0});
+      data_->query(queries, bitsetDevice, k, metric_type, metric_arg, outDistances, outIntLabels, true);
+  } else {
+      auto bitsetDevice = toDevice<uint8_t, 1>(resources_, device_,
+                                               const_cast<uint8_t*>(bitset->data()), stream,
+                                               {(int) bitset->size()});
+      data_->query(queries, bitsetDevice, k, metric_type, metric_arg, outDistances, outIntLabels, true);
+  }
 
   // Convert int to idx_t
   convertTensor<int, Index::idx_t, 2>(stream,

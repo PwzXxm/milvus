@@ -80,6 +80,11 @@ Index *ToCPUCloner::clone_Index(const Index *index)
         IndexIVFScalarQuantizer *res = new IndexIVFScalarQuantizer();
         ifl->copyTo(res);
         return res;
+    } else if(auto ifl =
+              dynamic_cast<const GpuIndexIVFSQHybrid*>(index)) {
+        IndexIVFSQHybrid *res = new IndexIVFSQHybrid();
+        ifl->copyTo(res);
+        return res;
     } else if(auto ipq = dynamic_cast<const GpuIndexIVFPQ *>(index)) {
         IndexIVFPQ *res = new IndexIVFPQ();
         ipq->copyTo(res);

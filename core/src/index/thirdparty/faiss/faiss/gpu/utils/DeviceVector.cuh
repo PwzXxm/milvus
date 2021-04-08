@@ -31,6 +31,7 @@ class DeviceVector {
   DeviceVector(GpuResources* res, AllocInfo allocInfo)
       : num_(0),
         capacity_(0),
+        owner(true)
         res_(res),
         allocInfo_(allocInfo) {
     FAISS_ASSERT(res_);
@@ -39,12 +40,26 @@ class DeviceVector {
   ~DeviceVector() {
     clear();
   }
+  
+  void reset(T* data, size_t num, size_t capacity, MemorySpace space = MemorySpace::Device) {
+      FAISS_ASSERT(data != nullptr);
+      FAISS_ASSERT(capacity >= num);
+      clear();
+      owner = false;
+      alloc_.data = data;
+      num_ = num;
+      capacity_ = capacity_;
+  }
 
   // Clear all allocated memory; reset to zero size
   void clear() {
-    alloc_.release();
+    if (owner) {
+      alloc_.release();
+    }
+
     num_ = 0;
     capacity_ = 0;
+    owner = true;
   }
 
   size_t size() const { return num_; }
@@ -158,6 +173,7 @@ class DeviceVector {
  private:
   void realloc_(size_t newCapacity, cudaStream_t stream) {
     FAISS_ASSERT(num_ <= newCapacity);
+    FAISS_ASSERT_MSG(owner, "Cannot realloc due to no ownership of mem");
 
     size_t newSizeInBytes = newCapacity * sizeof(T);
     size_t oldSizeInBytes = num_ * sizeof(T);
@@ -202,6 +218,8 @@ class DeviceVector {
 
   /// How we should allocate memory
   AllocInfo allocInfo_;
+
+  bool owner = true;
 };
 
 } } // namespace
