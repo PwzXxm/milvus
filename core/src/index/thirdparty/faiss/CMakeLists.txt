@@ -22,12 +22,26 @@ option(FAISS_OPT_LEVEL "" "generic")
 option(FAISS_ENABLE_GPU "Enable support for GPU indexes." ON)
 option(FAISS_ENABLE_PYTHON "Build Python extension." ON)
 
+if (FAISS_CFLAGS)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${FAISS_CFLAGS} ${FAISS_CPPFLAGS}")
+endif()
+
+if (FAISS_CXXFLAGS)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FAISS_CXXFLAGS} ${FAISS_CPPFLAGS}")
+endif()
+
 if(FAISS_ENABLE_GPU)
+  # externalproject_add use semicolon to separate commands, revert to desired format
+  string(REPLACE ":" ";" CMAKE_CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES})
   set(CMAKE_CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
   enable_language(CUDA)
 endif()
 
 add_subdirectory(faiss)
+
+if (FAISS_LDFLAGS)
+  target_link_options(faiss PUBLIC "${FAISS_LDFLAGS}")
+endif()
 
 if(FAISS_ENABLE_GPU)
   add_subdirectory(faiss/gpu)

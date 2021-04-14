@@ -510,38 +510,45 @@ macro(build_faiss)
     set(FAISS_STATIC_LIB
             "${FAISS_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}faiss${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-    set(FAISS_CONFIGURE_ARGS
-            "CFLAGS=${EP_C_FLAGS}"
-            "CXXFLAGS=${EP_CXX_FLAGS} -mf16c -O3")
-            #"--prefix=${FAISS_PREFIX}"
+    set(FAISS_CFLAGS "-DFAISS_CFLAGS=${EP_C_FLAGS}")
+    set(FAISS_CXXFLAGS "-DFAISS_CXXFLAGS=${EP_CXX_FLAGS} -mf16c -O3")
+    set(FAISS_CPPFLAGS "-DFAISS_CPPFLAGS=")
+    set(FAISS_LDFLAGS "-DFAISS_LDFLAGS=")
 
     if (FAISS_WITH_MKL)
-        set(FAISS_CONFIGURE_ARGS ${FAISS_CONFIGURE_ARGS}
-                "CPPFLAGS=-DFINTEGER=long -DMKL_ILP64 -m64 -I${MKL_LIB_PATH}/../../include"
-                "LDFLAGS=-L${MKL_LIB_PATH}"
-                )
+        set(FAISS_CPPFLAGS "${FAISS_CPPFLAGS} -DFINTEGER=long -DMKL_ILP64 -m64 -I${MKL_LIB_PATH}/../../include")
+        set(FAISS_LDFLAGS "${FAISS_LDFLAGS} -L${MKL_LIB_PATH}")
     else ()
         message(STATUS "Build Faiss with OpenBlas/LAPACK")
         if(OpenBLAS_FOUND)
-            set(FAISS_CONFIGURE_ARGS ${FAISS_CONFIGURE_ARGS}
-                "LDFLAGS=-L${OpenBLAS_LIB_DIR}")
+            set(FAISS_LDFLAGS "${FAISS_LDFLAGS} -L${OpenBLAS_LIB_DIR}")
         else()
-            set(FAISS_CONFIGURE_ARGS ${FAISS_CONFIGURE_ARGS}
-                "LDFLAGS=-L${OPENBLAS_PREFIX}/lib")
+            set(FAISS_LDFLAGS "${FAISS_LDFLAGS} -L${OPENBLAS_PREFIX}/lib")
         endif()
     endif ()
 
     if (KNOWHERE_GPU_VERSION)
         set(FAISS_CONFIGURE_ARGS ${FAISS_CONFIGURE_ARGS}
-                "-DFAISS_ENABLE_GPU=ON"
-                "-DCUDAToolkit_ROOT=${CUDA_TOOLKIT_ROOT_DIR}"
-                "-DCMAKE_CUDA_ARCHITECTURES=-gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_61,code=sm_61 -gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_75,code=sm_75"
+                -DFAISS_ENABLE_GPU=ON
+                -DCUDAToolkit_ROOT=${CUDA_TOOLKIT_ROOT_DIR}
+                -DCMAKE_CUDA_ARCHITECTURES=60:61:70:75
                 )
     else ()
         set(FAISS_CONFIGURE_ARGS ${FAISS_CONFIGURE_ARGS}
-                "CPPFLAGS=-DUSE_CPU"
-                "-DFAISS_ENABLE_GPU=OFF")
+                -DFAISS_ENABLE_GPU=OFF)
+        set(FAISS_CPPFLAGS "${FAISS_CPPFLAGS} -DUSE_CPU")
+        set(FAISS_CFLAGS "${FAISS_CFLAGS} ${EP_C_FLAGS}")
     endif ()
+
+    set(FAISS_CONFIGURE_ARGS ${FAISS_CONFIGURE_ARGS}
+            ${FAISS_CFLAGS}
+            ${FAISS_CXXFLAGS}
+            ${FAISS_CPPFLAGS}
+            ${FAISS_LDFLAGS}
+            ${FAISS_CUDA_ROOT}
+            -DCMAKE_BUILD_TYPE=Release
+            -DFAISS_ENABLE_PYTHON=OFF
+    )
 
     message(STATUS "Building FAISS with configure args -${FAISS_CONFIGURE_ARGS}")
 
@@ -550,14 +557,15 @@ macro(build_faiss)
         externalproject_add(faiss_ep
                 URL
                 ${FAISS_SOURCE_URL}
-                ${EP_LOG_OPTIONS}
-                CONFIGURE_COMMAND
-                "./configure"
+                PREFIX
+                ${FAISS_PREFIX}
+                SOURCE_DIR
+                ${FAISS_SOURCE_DIR}
+                CMAKE_ARGS
                 ${FAISS_CONFIGURE_ARGS}
+                ${EP_LOG_OPTIONS}
                 BUILD_COMMAND
                 ${MAKE} ${MAKE_BUILD_ARGS} all
-                BUILD_IN_SOURCE
-                1
                 INSTALL_COMMAND
                 ${MAKE} install
                 BUILD_BYPRODUCTS
@@ -570,9 +578,9 @@ macro(build_faiss)
                 ${FAISS_PREFIX}
                 SOURCE_DIR
                 ${FAISS_SOURCE_DIR}
-                ${EP_LOG_OPTIONS}
                 CMAKE_ARGS
                 ${FAISS_CONFIGURE_ARGS}
+                ${EP_LOG_OPTIONS}
                 BUILD_COMMAND
                 ${MAKE} ${MAKE_BUILD_ARGS} all
                 INSTALL_COMMAND

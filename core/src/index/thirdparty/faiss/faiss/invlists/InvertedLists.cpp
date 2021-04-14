@@ -16,7 +16,7 @@
 #include <faiss/impl/FaissAssert.h>
 
 #ifndef USE_CPU
-#include "gpu/utils/DeviceUtils.h"
+#include "faiss/gpu/utils/DeviceUtils.h"
 #include "cuda.h"
 #include "cuda_runtime.h"
 
