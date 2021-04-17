@@ -68,7 +68,7 @@ class GpuIndex : public faiss::Index {
   void assign(Index::idx_t n,
               const float* x,
               Index::idx_t* labels,
-              Index::idx_t k = 1) const override;
+              float *distances = nullptr) const override;
 
   /// `x`, `distances` and `labels` can be resident on the CPU or any
   /// GPU; copies are performed as needed

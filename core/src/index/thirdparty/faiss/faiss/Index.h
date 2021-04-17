@@ -137,7 +137,7 @@ struct Index {
      * @param x           input vectors to search, size n * d
      * @param labels      output labels of the NNs, size n
      */
-    virtual void assign (idx_t n, const float * x, idx_t * labels, float* distance = nullptr);
+    virtual void assign (idx_t n, const float * x, idx_t * labels, float* distance = nullptr) const;
 
     /// removes all elements from the database.
     virtual void reset() = 0;

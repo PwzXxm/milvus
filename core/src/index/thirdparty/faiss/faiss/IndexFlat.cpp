@@ -67,7 +67,7 @@ void IndexFlat::search (idx_t n, const float *x, idx_t k,
     }
 }
 
-void IndexFlat::assign(idx_t n, const float * x, idx_t * labels, float* distances)
+void IndexFlat::assign(idx_t n, const float * x, idx_t * labels, float* distances) const
 {
     // usually used in IVF k-means algorithm
     float *dis_inner = (distances == nullptr) ? new float[n] : distances;

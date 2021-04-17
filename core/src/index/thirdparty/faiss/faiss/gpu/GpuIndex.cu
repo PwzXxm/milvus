@@ -198,7 +198,7 @@ void
 GpuIndex::assign(Index::idx_t n,
                  const float* x,
                  Index::idx_t* labels,
-                 Index::idx_t k) const {
+                 float *distances) const {
   FAISS_THROW_IF_NOT_MSG(this->is_trained, "Index not trained");
 
   // For now, only support <= max int results
@@ -207,23 +207,27 @@ GpuIndex::assign(Index::idx_t n,
                          std::numeric_limits<int>::max());
 
   // Maximum k-selection supported is based on the CUDA SDK
-  FAISS_THROW_IF_NOT_FMT(k <= (Index::idx_t) getMaxKSelection(),
+  FAISS_THROW_IF_NOT_FMT(1 <= (Index::idx_t) getMaxKSelection(),
                          "GPU index only supports k <= %d (requested %d)",
                          getMaxKSelection(),
-                         (int) k); // select limitation
+                         (int) 1); // select limitation
 
   DeviceScope scope(config_.device);
   auto stream = resources_->getDefaultStream(config_.device);
 
   // We need to create a throw-away buffer for distances, which we don't use but
   // which we do need for the search call
-  DeviceTensor<float, 2, true> distances(
-    resources_.get(),
-    makeTempAlloc(AllocType::Other, stream),
-    {(int) n, (int) k});
+  if (distances == nullptr) {
+    DeviceTensor<float, 2, true> dis(
+      resources_.get(),
+      makeTempAlloc(AllocType::Other, stream),
+      {(int) n, (int) 1});
 
-  // Forward to search
-  search(n, x, k, distances.data(), labels);
+    // Forward to search
+    search(n, x, 1, dis.data(), labels);
+  } else {
+    search(n, x, 1, distances, labels);
+  }
 }
 
 void

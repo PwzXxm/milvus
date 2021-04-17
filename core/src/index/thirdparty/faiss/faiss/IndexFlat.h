@@ -41,7 +41,7 @@ struct IndexFlat: Index {
         idx_t n,
         const float * x,
         idx_t * labels,
-        float* distances = nullptr) override;
+        float* distances = nullptr) const override;
 
     void range_search(
         idx_t n,

@@ -36,7 +36,7 @@ void Index::range_search (idx_t , const float *, float,
   FAISS_THROW_MSG ("range search not implemented");
 }
 
-void Index::assign (idx_t n, const float* x, idx_t* labels, float* distance)
+void Index::assign (idx_t n, const float* x, idx_t* labels, float* distance) const
 {
     float *dis_inner = (distance == nullptr) ? new float[n] : distance;
     search (n, x, 1, dis_inner, labels);
