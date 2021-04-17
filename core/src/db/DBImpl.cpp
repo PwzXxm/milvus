@@ -36,7 +36,7 @@
 #include "engine/EngineFactory.h"
 #include "index/knowhere/knowhere/index/vector_index/helpers/BuilderSuspend.h"
 #include "index/knowhere/knowhere/index/vector_index/helpers/FaissIO.h"
-#include "index/thirdparty/faiss/utils/distances.h"
+#include "index/thirdparty/faiss/faiss/utils/distances.h"
 #include "insert/MemManagerFactory.h"
 #include "meta/MetaConsts.h"
 #include "meta/MetaFactory.h"
