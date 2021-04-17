@@ -17,6 +17,7 @@
 #include <faiss/IndexFlat.h>
 #include <faiss/utils/utils.h>
 #include <faiss/utils/distances.h>
+#include <faiss/FaissHook.h>
 
 
 namespace {
