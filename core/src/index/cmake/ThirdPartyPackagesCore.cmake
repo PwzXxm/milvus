@@ -509,7 +509,7 @@ macro(build_faiss)
     set(FAISS_INCLUDE_DIR "${FAISS_PREFIX}/include")
     set(FAISS_STATIC_LIB
             "${FAISS_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}faiss${CMAKE_STATIC_LIBRARY_SUFFIX}")
-
+    
     set(FAISS_CFLAGS "-DFAISS_CFLAGS=${EP_C_FLAGS}")
     set(FAISS_CXXFLAGS "-DFAISS_CXXFLAGS=${EP_CXX_FLAGS} -mf16c -O3")
     set(FAISS_CPPFLAGS "-DFAISS_CPPFLAGS=")
@@ -548,6 +548,7 @@ macro(build_faiss)
             ${FAISS_CUDA_ROOT}
             -DCMAKE_BUILD_TYPE=Release
             -DFAISS_ENABLE_PYTHON=OFF
+            -DCMAKE_INSTALL_PREFIX:PATH=${FAISS_PREFIX}
     )
 
     message(STATUS "Building FAISS with configure args -${FAISS_CONFIGURE_ARGS}")
