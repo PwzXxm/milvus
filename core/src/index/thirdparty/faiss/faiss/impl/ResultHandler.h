@@ -36,17 +36,43 @@ struct HeapResultHandler {
     int nq;
     T *heap_dis_tab;
     TI *heap_ids_tab;
+    bool own_fields;
 
     int64_t k;  // number of results to keep
+
+    HeapResultHandler() {}
 
     HeapResultHandler(
         size_t nq,
         T * heap_dis_tab, TI * heap_ids_tab,
         size_t k):
         nq(nq),
-        heap_dis_tab(heap_dis_tab), heap_ids_tab(heap_ids_tab), k(k)
+        heap_dis_tab(heap_dis_tab), heap_ids_tab(heap_ids_tab), k(k), own_fields(false)
     {
+    }
 
+    ~HeapResultHandler() {
+        if (own_fields) {
+            free(heap_dis_tab);
+            free(heap_ids_tab);
+        }
+    }
+
+    HeapResultHandler *clone_n(int n, size_t block_x) {
+        HeapResultHandler *ress = new HeapResultHandler[n];
+
+        T *global_heap_dis_tab = (T *)malloc(block_x * k * n * sizeof(T));
+        TI *global_heap_ids_tab = (TI *)malloc(block_x * k * n * sizeof(TI));
+
+        for (int i = 0; i < n; i++) {
+            ress[i].nq = block_x;
+            ress[i].k = k;
+            ress[i].heap_dis_tab = global_heap_dis_tab + block_x * k * i;
+            ress[i].heap_ids_tab = global_heap_ids_tab + block_x * k * i;
+            ress[i].own_fields = (i == 0);
+        }
+
+        return ress;
     }
 
     /******************************************************
@@ -103,17 +129,19 @@ struct HeapResultHandler {
     }
 
     /// add results for query i0..i1 and j0..j1
-    void add_results(size_t j0, size_t j1, const T *dis_tab) {
-        // maybe parallel for
+    void add_results(size_t j0, size_t j1, const T *dis_tab, ConcurrentBitsetPtr bitset = nullptr) {
+#pragma omp parallel for
         for (size_t i = i0; i < i1; i++) {
             T * heap_dis = heap_dis_tab + i * k;
             TI * heap_ids = heap_ids_tab + i * k;
             T thresh = heap_dis[0];
             for (size_t j = j0; j < j1; j++) {
-                T dis = *dis_tab++;
-                if (C::cmp(thresh, dis)) {
-                    heap_replace_top<C>(k, heap_dis, heap_ids, dis, j);
-                    thresh = heap_dis[0];
+                if (!bitset || !bitset->test(j)) {
+                    T dis = *dis_tab++;
+                    if (C::cmp(thresh, dis)) {
+                        heap_replace_top<C>(k, heap_dis, heap_ids, dis, j);
+                        thresh = heap_dis[0];
+                    }
                 }
             }
         }
@@ -127,6 +155,10 @@ struct HeapResultHandler {
         }
     }
 
+    void copy_from(HeapResultHandler &res, size_t x_from, size_t size) {
+        memcpy(heap_dis_tab + x_from * k, res.heap_dis_tab, size * k * sizeof(T));
+        memcpy(heap_ids_tab + x_from * k, res.heap_ids_tab, size * k * sizeof(TI));
+    }
 };
 
 /*****************************************************************
@@ -222,6 +254,7 @@ struct ReservoirResultHandler {
     int nq;
     T *heap_dis_tab;
     TI *heap_ids_tab;
+    bool own_fields;
 
     int64_t k;  // number of results to keep
     size_t capacity; // capacity of the reservoirs
@@ -231,11 +264,39 @@ struct ReservoirResultHandler {
         T * heap_dis_tab, TI * heap_ids_tab,
         size_t k):
         nq(nq),
-        heap_dis_tab(heap_dis_tab), heap_ids_tab(heap_ids_tab), k(k)
+        heap_dis_tab(heap_dis_tab), heap_ids_tab(heap_ids_tab), k(k), own_fields(false)
     {
         // double then round up to multiple of 16 (for SIMD alignment)
         capacity = (2 * k + 15) & ~15;
     }
+
+    ReservoirResultHandler() {}
+
+    ~ReservoirResultHandler() {
+        if (own_fields) {
+            free(heap_dis_tab);
+            free(heap_ids_tab);
+        }
+    }
+
+    ReservoirResultHandler *clone_n(int n, size_t block_x) {
+        ReservoirResultHandler *ress = new ReservoirResultHandler[n];
+
+        T *global_heap_dis_tab = (T *)malloc(block_x * k * n * sizeof(T));
+        TI *global_heap_ids_tab = (TI *)malloc(block_x * k * n * sizeof(TI));
+
+        for (int i = 0; i < n; i++) {
+            ress[i].nq = block_x;
+            ress[i].k = k;
+            ress[i].heap_dis_tab = global_heap_dis_tab + block_x * k * i;
+            ress[i].heap_ids_tab = global_heap_ids_tab + block_x * k * i;
+            ress[i].own_fields = (i == 0);
+            ress[i].capacity = (2 * k + 15) & ~15;
+        }
+
+        return ress;
+    }
+
 
     /******************************************************
      * API for 1 result at a time (each SingleResultHandler is
@@ -303,13 +364,15 @@ struct ReservoirResultHandler {
     }
 
     /// add results for query i0..i1 and j0..j1
-    void add_results(size_t j0, size_t j1, const T *dis_tab) {
-        // maybe parallel for
+    void add_results(size_t j0, size_t j1, const T *dis_tab, ConcurrentBitsetPtr bitset = nullptr) {
+#pragma omp parallel for
         for (size_t i = i0; i < i1; i++) {
             ReservoirTopN<C> & reservoir = reservoirs[i - i0];
             for (size_t j = j0; j < j1; j++) {
-                T dis = *dis_tab++;
-                reservoir.add(dis, j);
+                if (!bitset || !bitset->test(j)) {
+                    T dis = *dis_tab++;
+                    reservoir.add(dis, j);
+                }
             }
         }
     }
@@ -323,6 +386,10 @@ struct ReservoirResultHandler {
         }
     }
 
+    void copy_from(ReservoirResultHandler &res, size_t x_from, size_t size) {
+        memcpy(heap_dis_tab + x_from * k, res.heap_dis_tab, size * k * sizeof(T));
+        memcpy(heap_ids_tab + x_from * k, res.heap_ids_tab, size * k * sizeof(TI));
+    }
 };
 
 
