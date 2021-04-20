@@ -91,9 +91,9 @@ GpuIndexIVFFlat::copyFrom(const faiss::IndexIVFFlat* index) {
                            ivfFlatConfig_.indicesOptions,
                            config_.memorySpace));
 
-  if (ReadOnlyArrayInvertedLists* rol = dynamic_cast<ReadOnlyArrayInvertedLists*>(ivf)) {
-    index_->copyCodeVectorsFromCpu((const float* )(rol->pin_readonly_codes->data),
-                                   (const long *)(rol->pin_readonly_ids->data), rol->readonly_length);
+  if (ReadOnlyArrayInvertedLists* rol = dynamic_cast<ReadOnlyArrayInvertedLists*>(index->invlists)) {
+    index_->copyCodeVectorsFromCpu((const float *)(rol->pin_readonly_codes->data),
+                                   (const idx_t *)(rol->pin_readonly_ids->data), rol->readonly_length);
     /* double t0 = getmillisecs(); */
     /* std::cout << "Readonly Takes " << getmillisecs() - t0 << " ms" << std::endl; */
   } else {
@@ -247,7 +247,7 @@ GpuIndexIVFFlat::searchImpl_(int n,
   FAISS_ASSERT(n > 0);
   const bool enableQuerySlicing = false;
 
-  auto stream = resources_->getDefaultStream(device_);
+  auto stream = resources_->getDefaultStream(config_.device);
 
   // Data is already resident on the GPU
   Tensor<float, 2, true> queries(const_cast<float*>(x), {n, (int) this->d});
@@ -255,14 +255,14 @@ GpuIndexIVFFlat::searchImpl_(int n,
   Tensor<Index::idx_t, 2, true> outLabels(const_cast<Index::idx_t*>(labels), {n, k});
 
   if (!bitset) {
-    auto bitsetDevice = toDevice<uint8_t, 1>(resources_, device_, nullptr, stream, {0});
+    auto bitsetDevice = toDeviceTemporary<uint8_t, 1>(resources_.get(), config_.device, nullptr, stream, {0});
     if (enableQuerySlicing) {
       index_->query(queries, bitsetDevice, nprobe, k, outDistances, outLabels, distances, labels);
     } else {
       index_->query(queries, bitsetDevice, nprobe, k, outDistances, outLabels);
     }
   } else {
-    auto bitsetDevice = toDevice<uint8_t, 1>(resources_, device_,
+    auto bitsetDevice = toDeviceTemporary<uint8_t, 1>(resources_.get(), config_.device,
                                              const_cast<uint8_t*>(bitset->data()), stream,
                                              {(int) bitset->size()});
     index_->query(queries, bitsetDevice, nprobe, k, outDistances, outLabels);

@@ -356,7 +356,7 @@ void runSumAlongRows(Tensor<half, 1, true>& input,
                      bool zeroClamp,
                      cudaStream_t stream) {
   runSumAlongRows<half>(input, output, zeroClamp, stream);
-#endif
 }
+#endif
 
 } } // namespace

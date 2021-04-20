@@ -17,6 +17,13 @@ class IVFFlat;
 class GpuIndexFlat;
 
 struct GpuIndexIVFSQHybridConfig : public GpuIndexIVFConfig {
+  inline GpuIndexIVFSQHybridConfig()
+      : interleavedLayout(true) {
+  }
+
+  /// Use the alternative memory layout for the IVF lists
+  /// (currently the default)
+  bool interleavedLayout;
 };
 
 /// Wrapper around the GPU implementation that looks like
@@ -26,7 +33,7 @@ class GpuIndexIVFSQHybrid : public GpuIndexIVF {
   /// Construct from a pre-existing faiss::IndexIVFSQHybrid instance,
   /// copying data over to the given GPU, if the input index is trained.
   GpuIndexIVFSQHybrid(
-    GpuResources* resources,
+    GpuResourcesProvider* provider,
     faiss::IndexIVFSQHybrid* index,
     GpuIndexIVFSQHybridConfig config =
     GpuIndexIVFSQHybridConfig());
@@ -34,7 +41,7 @@ class GpuIndexIVFSQHybrid : public GpuIndexIVF {
   /// Constructs a new instance with an empty flat quantizer; the user
   /// provides the number of lists desired.
   GpuIndexIVFSQHybrid(
-    GpuResources* resources,
+    GpuResourcesProvider* provider,
     int dims,
     int nlist,
     faiss::QuantizerType qtype,
@@ -68,6 +75,22 @@ class GpuIndexIVFSQHybrid : public GpuIndexIVF {
 
   void train(Index::idx_t n, const float* x) override;
 
+  /// Returns the number of vectors present in a particular inverted list
+  int getListLength(int listId) const override;
+
+  /// Return the encoded vector data contained in a particular inverted list,
+  /// for debugging purposes.
+  /// If gpuFormat is true, the data is returned as it is encoded in the
+  /// GPU-side representation.
+  /// Otherwise, it is converted to the CPU format.
+  /// compliant format, while the native GPU format may differ.
+  std::vector<uint8_t>
+  getListVectorData(int listId, bool gpuFormat = false) const override;
+
+  /// Return the vector indices contained in a particular inverted list, for
+  /// debugging purposes.
+  std::vector<Index::idx_t> getListIndices(int listId) const override;
+
  protected:
   /// Called from GpuIndex for add/add_with_ids
   void addImpl_(int n,
@@ -93,13 +116,14 @@ class GpuIndexIVFSQHybrid : public GpuIndexIVF {
   bool by_residual;
 
  private:
-  GpuIndexIVFSQHybridConfig ivfSQConfig_;
+  /// Our configuration options
+  const GpuIndexIVFSQHybridConfig ivfSQConfig_;
 
   /// Desired inverted list memory reservation
   size_t reserveMemoryVecs_;
 
   /// Instance that we own; contains the inverted list
-  IVFFlat* index_;
+  std::unique_ptr<IVFFlat> index_;
 };
 
 } } // namespace

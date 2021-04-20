@@ -299,7 +299,9 @@ void bfKnnOnDev(GpuResources* res,
               outInd_h,
               i,
               curTile,
-              nprobe);
+              nprobe,
+            
+              ignoreOutDistances);
   } else if (metric == faiss::MetricType::METRIC_INNER_PRODUCT) {
     runIPDistance(res,
                   vectors,

@@ -116,9 +116,9 @@ IVFBase::reset() {
   maxListLength_ = 0;
 
 
-  deviceData_.reset(new DeviceVector<DeviceIVFList>(space_));
-  deviceIndices_.reset(new DeviceVector<DeviceIVFList>(space_));
-  deviceTrained_.reset(new DeviceVector<DeviceIVFList>(space_));
+  deviceData_.reset(new DeviceIVFList(resources_, info));;
+  deviceIndices_.reset(new DeviceIVFList(resources_, info));
+  deviceTrained_.reset(new DeviceIVFList(resources_, info));;
 }
 
 int
@@ -384,9 +384,68 @@ IVFBase::addEncodedVectorsToList_(int listId,
   }
 }
 
+void
+IVFBase::copyCodeVectorsFromCpu(const float* vecs,
+                                const Index::idx_t* indices,
+                                const std::vector<size_t>& list_length) {
+    FAISS_ASSERT_FMT(list_length.size() == this->getNumLists(), "Expect list size %zu but %zu received!",
+                     this->getNumLists(), list_length.size());
+    int64_t numVecs = std::accumulate(list_length.begin(), list_length.end(), 0);
+    if (numVecs == 0) {
+        return;
+    }
+
+    auto stream = resources_->getDefaultStreamCurrentDevice();
+
+    deviceListLengths_ = list_length;
+
+    auto lengthInBytes = getCpuVectorsEncodingSize_(numVecs);
+
+    // TODO: Investigate whether we need to translate the interleaved layout
+    // For now, the interleaved layout only applies to the IVFPQ.
+    // This function is called when the inverted list is ReadOnlyArrayInvertedLists
+    // So there should be no problem
+
+
+    // We only have int32 length representations on the GPU per each
+    // list; the length is in sizeof(char)
+    FAISS_ASSERT(deviceData_->data.size() + lengthInBytes <= std::numeric_limits<int64_t>::max());
+
+    deviceData_->data.append((uint8_t *) vecs,
+                            lengthInBytes,
+                            stream,
+                            true /* exact reserved size */);
+    copyIndicesFromCpu_(indices, list_length);
+    maxListLength_ = 0;
+
+    size_t listId = 0;
+    size_t pos = 0;
+    size_t size = 0;
+    thrust::host_vector<void*> hostPointers(deviceListData_.size(), nullptr);
+
+    for (auto& device_data : deviceListData_) {
+        auto data = deviceData_->data.data() + pos;
+
+        size = getCpuVectorsEncodingSize_(list_length[listId]);
+
+        device_data->data.reset(data, size, size);
+        hostPointers[listId] = device_data->data.data();
+        maxListLength_ = std::max(maxListLength_, (int)list_length[listId]);
+        pos += size;
+        ++ listId;
+    }
+
+    deviceListDataPointers_ = hostPointers;
+
+    // device_vector add is potentially happening on a different stream
+    // than our default stream
+    if (stream != 0) {
+        streamWait({stream}, {0});
+    }
+}
 
 void
-IVFBase::copyIndicesFromCpu_(const long* indices,
+IVFBase::copyIndicesFromCpu_(const idx_t* indices,
                              const std::vector<size_t>& list_length) {
     FAISS_ASSERT_FMT(list_length.size() == this->getNumLists(), "Expect list size %zu but %zu received!",
                      this->getNumLists(), list_length.size());
@@ -405,13 +464,13 @@ IVFBase::copyIndicesFromCpu_(const long* indices,
 
         bytesPerRecord = sizeof(int);
 
-        deviceIndices_->append((unsigned char*) indices32.data(),
+        deviceIndices_->data.append((uint8_t*) indices32.data(),
                                numVecs * bytesPerRecord,
                                stream,
                                true);
     } else if (indicesOptions_ == INDICES_64_BIT) {
         bytesPerRecord = sizeof(long);
-        deviceIndices_->append((unsigned char*) indices,
+        deviceIndices_->data.append((uint8_t*) indices,
                                numVecs * bytesPerRecord,
                                stream,
                                true);
@@ -435,10 +494,10 @@ IVFBase::copyIndicesFromCpu_(const long* indices,
 
     thrust::host_vector<void*> hostPointers(deviceListData_.size(), nullptr);
     for (auto& device_indice : deviceListIndices_) {
-        auto data = deviceIndices_->data() + pos;
+        auto data = deviceIndices_->data.data() + pos;
         size = list_length[listId] * bytesPerRecord;
-        device_indice->reset(data, size, size);
-        hostPointers[listId] = device_indice->data();
+        device_indice->data.reset(data, size, size);
+        hostPointers[listId] = device_indice->data.data();
         pos += size;
         ++ listId;
     }
@@ -509,7 +568,10 @@ IVFBase::addVectors(Tensor<float, 2, true>& vecs,
   DeviceTensor<int, 2, true> listIds2d(
     resources_, makeTempAlloc(AllocType::Other, stream), {vecs.getSize(0), 1});
 
-  quantizer_->query(vecs, 1, metric_, metricArg_,
+  DeviceTensor<uint8_t, 1, true> bitset(
+    resources_, makeTempAlloc(AllocType::Other, stream), {0});
+
+  quantizer_->query(vecs, bitset, 1, metric_, metricArg_,
                     listDistance, listIds2d, false);
 
   // Copy the lists that we wish to append to back to the CPU
@@ -720,7 +782,7 @@ IVFBase::addTrainedDataFromCpu_(const uint8_t* trained,
                                 size_t numData) {
   auto stream = resources_->getDefaultStreamCurrentDevice();
 
-  deviceTrained_->append((uint8_t *)trained,
+  deviceTrained_->data.append((uint8_t *)trained,
                          numData,
                          stream,
                          true);

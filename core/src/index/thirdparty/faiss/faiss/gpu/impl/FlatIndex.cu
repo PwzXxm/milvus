@@ -410,7 +410,7 @@ FlatIndex::add(const float* data, int numVecs, cudaStream_t stream) {
   }
 #else
   DeviceTensor<float, 2, true> vectors(
-          (float*) rawData_.data(), {(int) num_, dim_}, space_);
+          (float*) rawData_.data(), {(int) num_, dim_});
   vectors_ = std::move(vectors);
 #endif
 
@@ -433,7 +433,10 @@ FlatIndex::add(const float* data, int numVecs, cudaStream_t stream) {
     }
 #else
     vectorsTransposed_ =
-            std::move(DeviceTensor<float, 2, true>({dim_, (int) num_}, space_));
+      DeviceTensor<float, 2, true>(
+        resources_,
+        makeSpaceAlloc(AllocType::FlatData, space_, stream),
+        {dim_, (int)num_});
     runTransposeAny(vectors_, 0, 1, vectorsTransposed_, stream);
 #endif
   }
@@ -456,7 +459,10 @@ FlatIndex::add(const float* data, int numVecs, cudaStream_t stream) {
     norms_ = std::move(norms);
   }
 #else
-  DeviceTensor<float, 1, true> norms({(int) num_}, space_);
+  DeviceTensor<float, 1, true> norms(
+    resources_,
+    makeSpaceAlloc(AllocType::FlatData, space_, stream),
+    {(int) num_});
   runL2Norm(vectors_, true, norms, true, stream);
   norms_ = std::move(norms);
 #endif

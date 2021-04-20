@@ -144,7 +144,7 @@ GpuIndexIVF::copyFrom(const faiss::IndexIVF* index) {
 
 void
 GpuIndexIVF::copyFrom(faiss::IndexIVF* index, gpu::GpuIndexFlat *&qt, int64_t mode) {
-    DeviceScope scope(device_);
+    DeviceScope scope(config_.device);
 
     this->d = index->d;
     this->metric_type = index->metric_type;
@@ -171,7 +171,7 @@ GpuIndexIVF::copyFrom(faiss::IndexIVF* index, gpu::GpuIndexFlat *&qt, int64_t mo
     // Construct an empty quantizer
     GpuIndexFlatConfig config = ivfConfig_.flatConfig;
     // FIXME: inherit our same device
-    config.device = device_;
+    config.device = config_.device;
     config.storeInCpu = true;
 
     if(qt == nullptr) {

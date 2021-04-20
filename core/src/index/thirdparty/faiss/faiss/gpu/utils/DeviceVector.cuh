@@ -31,7 +31,7 @@ class DeviceVector {
   DeviceVector(GpuResources* res, AllocInfo allocInfo)
       : num_(0),
         capacity_(0),
-        owner(true)
+        owner(true),
         res_(res),
         allocInfo_(allocInfo) {
     FAISS_ASSERT(res_);

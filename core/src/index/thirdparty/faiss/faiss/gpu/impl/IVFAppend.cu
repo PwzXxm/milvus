@@ -500,7 +500,7 @@ runIVFFlatInterleavedAppend(Tensor<int, 1, true>& listIds,
     FAISS_ASSERT(scalarQ->qtype == QuantizerType::QT_fp16);
 
     using CodecT = Codec<(int)QuantizerType::QT_fp16, 1>;
-    CodecT codec(scalarQ->qtype);
+    CodecT codec((int)scalarQ->qtype);
 
     DeviceTensor<half, 2, true> encodedVecs(
       res, makeTempAlloc(AllocType::Other, stream),

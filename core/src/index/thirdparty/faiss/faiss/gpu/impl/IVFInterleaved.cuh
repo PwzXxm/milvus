@@ -255,9 +255,9 @@ ivfInterleavedScan(Tensor<float, 2, true> queries,
       IVFINT_RUN(CodecT, METRIC_TYPE, THREADS, NUM_WARP_Q, NUM_THREAD_Q); \
     } else {                                                            \
       switch (scalarQ->qtype) {                                         \
-        case ScalarQuantizer::QuantizerType::QT_8bit:                   \
+        case QuantizerType::QT_8bit:                                    \
         {                                                               \
-          using CodecT = Codec<ScalarQuantizer::QuantizerType::QT_8bit, 1>; \
+          using CodecT = Codec<(int)QuantizerType::QT_8bit, 1>;         \
           CodecT                                                        \
             codec(scalarQ->code_size,                                   \
                   scalarQ->gpuTrained.data(),                           \
@@ -265,54 +265,54 @@ ivfInterleavedScan(Tensor<float, 2, true> queries,
           IVFINT_RUN(CodecT, METRIC_TYPE, THREADS, NUM_WARP_Q, NUM_THREAD_Q); \
         }                                                               \
         break;                                                          \
-        case ScalarQuantizer::QuantizerType::QT_8bit_uniform:           \
+        case QuantizerType::QT_8bit_uniform:                            \
         {                                                               \
-          using CodecT = Codec<ScalarQuantizer::QuantizerType::QT_8bit_uniform, 1>; \
+          using CodecT = Codec<(int)QuantizerType::QT_8bit_uniform, 1>; \
           CodecT                                                        \
             codec(scalarQ->code_size, scalarQ->trained[0], scalarQ->trained[1]); \
           IVFINT_RUN(CodecT, METRIC_TYPE, THREADS, NUM_WARP_Q, NUM_THREAD_Q); \
         }                                                               \
         break;                                                          \
-        case ScalarQuantizer::QuantizerType::QT_fp16:                   \
+        case QuantizerType::QT_fp16:                                    \
         {                                                               \
-          using CodecT = Codec<ScalarQuantizer::QuantizerType::QT_fp16, 1>; \
+          using CodecT = Codec<(int)QuantizerType::QT_fp16, 1>;         \
           CodecT                                                        \
             codec(scalarQ->code_size);                                  \
           IVFINT_RUN(CodecT, METRIC_TYPE, THREADS, NUM_WARP_Q, NUM_THREAD_Q); \
         }                                                               \
         break;                                                          \
-        case ScalarQuantizer::QuantizerType::QT_8bit_direct:            \
+        case QuantizerType::QT_8bit_direct:                             \
         {                                                               \
-          using CodecT = Codec<ScalarQuantizer::QuantizerType::QT_8bit_direct, 1>; \
-          Codec<ScalarQuantizer::QuantizerType::QT_8bit_direct, 1>      \
+          using CodecT = Codec<(int)QuantizerType::QT_8bit_direct, 1>;  \
+          Codec<(int)QuantizerType::QT_8bit_direct, 1>                  \
             codec(scalarQ->code_size);                                  \
           IVFINT_RUN(CodecT, METRIC_TYPE, THREADS, NUM_WARP_Q, NUM_THREAD_Q); \
         }                                                               \
         break;                                                          \
-        case ScalarQuantizer::QuantizerType::QT_6bit:                   \
+        case QuantizerType::QT_6bit:                                    \
         {                                                               \
-          using CodecT = Codec<ScalarQuantizer::QuantizerType::QT_6bit, 1>; \
-          Codec<ScalarQuantizer::QuantizerType::QT_6bit, 1>             \
+          using CodecT = Codec<(int)QuantizerType::QT_6bit, 1>;         \
+          Codec<(int)QuantizerType::QT_6bit, 1>                         \
             codec(scalarQ->code_size,                                   \
                   scalarQ->gpuTrained.data(),                           \
                   scalarQ->gpuTrained.data() + dim);                    \
           IVFINT_RUN(CodecT, METRIC_TYPE, THREADS, NUM_WARP_Q, NUM_THREAD_Q); \
         }                                                               \
         break;                                                          \
-        case ScalarQuantizer::QuantizerType::QT_4bit:                   \
+        case QuantizerType::QT_4bit:                                    \
         {                                                               \
-          using CodecT = Codec<ScalarQuantizer::QuantizerType::QT_4bit, 1>; \
-          Codec<ScalarQuantizer::QuantizerType::QT_4bit, 1>             \
+          using CodecT = Codec<(int)QuantizerType::QT_4bit, 1>;         \
+          Codec<(int)QuantizerType::QT_4bit, 1>                         \
             codec(scalarQ->code_size,                                   \
                   scalarQ->gpuTrained.data(),                           \
                   scalarQ->gpuTrained.data() + dim);                    \
           IVFINT_RUN(CodecT, METRIC_TYPE, THREADS, NUM_WARP_Q, NUM_THREAD_Q); \
         }                                                               \
         break;                                                          \
-        case ScalarQuantizer::QuantizerType::QT_4bit_uniform:           \
+        case QuantizerType::QT_4bit_uniform:                            \
         {                                                               \
-          using CodecT = Codec<ScalarQuantizer::QuantizerType::QT_4bit_uniform, 1>; \
-          Codec<ScalarQuantizer::QuantizerType::QT_4bit_uniform, 1>     \
+          using CodecT = Codec<(int)QuantizerType::QT_4bit_uniform, 1>; \
+          Codec<(int)QuantizerType::QT_4bit_uniform, 1>                 \
             codec(scalarQ->code_size, scalarQ->trained[0], scalarQ->trained[1]); \
           IVFINT_RUN(CodecT, METRIC_TYPE, THREADS, NUM_WARP_Q, NUM_THREAD_Q); \
         }                                                               \

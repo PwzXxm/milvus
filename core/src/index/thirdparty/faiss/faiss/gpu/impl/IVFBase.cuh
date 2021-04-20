@@ -62,7 +62,8 @@ class IVFBase {
   /// Return the list indices of a particular list back to the CPU
   std::vector<Index::idx_t> getListIndices(int listId) const;
 
-  DeviceVector<uint8_t>* getTrainedData() { return deviceTrained_.get(); };
+  // didn't use it anywhere; Dangerous to do so
+  // DeviceVector<uint8_t>* getTrainedData() { return deviceTrained_.get(); };
 
     /// Return the encoded vectors of a particular list back to the CPU
   std::vector<uint8_t> getListVectorData(int listId, bool gpuFormat) const;
@@ -72,6 +73,10 @@ class IVFBase {
 
   /// Copy all inverted lists from ourselves to a CPU representation
   void copyInvertedListsTo(InvertedLists* ivf);
+
+  void copyCodeVectorsFromCpu(const float* vecs,
+                              const Index::idx_t* indices,
+                              const std::vector<size_t>& list_length);
 
   /// Classify and encode/add vectors to our IVF lists.
   /// The input data must be on our current device.

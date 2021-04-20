@@ -50,11 +50,6 @@ void ToCPUCloner::merge_index(Index *dst, Index *src, bool successive_ids)
         auto ifl2 = dynamic_cast<IndexIVFScalarQuantizer *>(src);
         FAISS_ASSERT(ifl2);
         ifl->merge_from(*ifl2, successive_ids ? ifl->ntotal : 0);
-    } else if(auto ifl =
-            dynamic_cast<const GpuIndexIVFSQHybrid*>(index)) {
-        IndexIVFSQHybrid *res = new IndexIVFSQHybrid();
-        ifl->copyTo(res);
-        return res;
     } else if(auto ifl = dynamic_cast<IndexIVFPQ *>(dst)) {
         auto ifl2 = dynamic_cast<IndexIVFPQ *>(src);
         FAISS_ASSERT(ifl2);
@@ -145,7 +140,7 @@ Index *ToGpuCloner::clone_Index (IndexComposition* index_composition) {
         config.flatConfig.storeTransposed = storeTransposed;
 
         GpuIndexIVFSQHybrid *res =
-                new GpuIndexIVFSQHybrid(resources,
+                new GpuIndexIVFSQHybrid(provider,
                                         ifl->d,
                                         ifl->nlist,
                                         ifl->sq.qtype,
@@ -175,7 +170,7 @@ Index *ToGpuCloner::clone_Index(const Index *index)
         config.flatConfig.storeTransposed = storeTransposed;
 
         GpuIndexIVFSQHybrid *res =
-                new GpuIndexIVFSQHybrid(resources,
+                new GpuIndexIVFSQHybrid(provider,
                                         ifl->d,
                                         ifl->nlist,
                                         ifl->sq.qtype,
@@ -276,11 +271,11 @@ faiss::Index * index_cpu_to_gpu(
 }
 
 faiss::Index * index_cpu_to_gpu(
-        GpuResources* resources, int device,
+        GpuResourcesProvider* provider, int device,
         IndexComposition* index_composition,
         const GpuClonerOptions *options) {
     GpuClonerOptions defaults;
-    ToGpuCloner cl(resources, device, options ? *options : defaults);
+    ToGpuCloner cl(provider, device, options ? *options : defaults);
     return cl.clone_Index(index_composition);
 }
 

@@ -77,6 +77,9 @@ void bfKnnConvert(GpuResourcesProvider* prov, const GpuDistanceParams& args) {
                                 stream,
                                 {args.numQueries, args.k});
 
+  // Empty bitset
+  auto bitsetDevice = toDeviceTemporary<uint8_t, 1>(res, device, nullptr, stream, {0});
+
   if (args.outIndicesType == IndicesDataType::I64) {
     // The brute-force API only supports an interface for i32 indices only, so
     // we must create an output i32 buffer then convert back
@@ -85,10 +88,7 @@ void bfKnnConvert(GpuResourcesProvider* prov, const GpuDistanceParams& args) {
                      makeTempAlloc(AllocType::Other, stream),
                      {args.numQueries, args.k});
 
-    // Empty bitset
-    auto bitsetDevice = toDevice<uint8_t, 1>(res, device, nullptr, stream, {0});
-
-      // Since we've guaranteed that all arguments are on device, call the
+    // Since we've guaranteed that all arguments are on device, call the
     // implementation
     bfKnnOnDevice<T>(res,
                      device,
@@ -144,6 +144,7 @@ void bfKnnConvert(GpuResourcesProvider* prov, const GpuDistanceParams& args) {
                      args.vectorNorms ? &tVectorNorms : nullptr,
                      tQueries,
                      args.queriesRowMajor,
+                     bitsetDevice,
                      args.k,
                      args.metric,
                      args.metricArg,
@@ -174,7 +175,9 @@ bfKnn(GpuResourcesProvider* res, const GpuDistanceParams& args) {
   if (args.vectorType == DistanceDataType::F32) {
     bfKnnConvert<float>(res, args);
   } else if (args.vectorType == DistanceDataType::F16) {
+#ifdef FAISS_USE_FLOAT16
     bfKnnConvert<half>(res, args);
+#endif
   } else {
     FAISS_THROW_MSG("unknown vectorType");
   }
