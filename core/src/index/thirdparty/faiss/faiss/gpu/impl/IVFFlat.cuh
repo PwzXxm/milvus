@@ -30,10 +30,6 @@ class IVFFlat : public IVFBase {
 
   ~IVFFlat() override;
 
-  void copyCodeVectorsFromCpu(const float* vecs,
-                              const long* indices,
-                              const std::vector<size_t>& list_length);
-
 
   /// Find the approximate k nearest neigbors for `queries` against
   /// our database

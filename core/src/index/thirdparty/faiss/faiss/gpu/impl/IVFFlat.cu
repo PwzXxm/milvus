@@ -56,59 +56,6 @@ IVFFlat::IVFFlat(GpuResources* res,
 IVFFlat::~IVFFlat() {
 }
 
-void
-IVFFlat::copyCodeVectorsFromCpu(const float* vecs,
-                                const long* indices,
-                                const std::vector<size_t>& list_length) {
-    FAISS_ASSERT_FMT(list_length.size() == this->getNumLists(), "Expect list size %zu but %zu received!",
-                     this->getNumLists(), list_length.size());
-    int64_t numVecs = std::accumulate(list_length.begin(), list_length.end(), 0);
-    if (numVecs == 0) {
-        return;
-    }
-
-    auto stream = resources_->getDefaultStreamCurrentDevice();
-
-    deviceListLengths_ = list_length;
-
-    int64_t lengthInBytes = numVecs * bytesPerVector_;
-
-    // We only have int32 length representations on the GPU per each
-    // list; the length is in sizeof(char)
-    FAISS_ASSERT(deviceData_->size() + lengthInBytes <= std::numeric_limits<int64_t>::max());
-
-    deviceData_->append((uint8_t *) vecs,
-                            lengthInBytes,
-                            stream,
-                            true /* exact reserved size */);
-    copyIndicesFromCpu_(indices, list_length);
-    maxListLength_ = 0;
-
-    size_t listId = 0;
-    size_t pos = 0;
-    size_t size = 0;
-    thrust::host_vector<void*> hostPointers(deviceListData_.size(), nullptr);
-
-    for (auto& device_data : deviceListData_) {
-        auto data = deviceData_->data() + pos;
-
-        size = list_length[listId] * bytesPerVector_;
-
-        device_data->reset(data, size, size);
-        hostPointers[listId] = device_data->data();
-        maxListLength_ = std::max(maxListLength_, (int)list_length[listId]);
-        pos += size;
-        ++ listId;
-    }
-
-    deviceListDataPointers_ = hostPointers;
-
-    // device_vector add is potentially happening on a different stream
-    // than our default stream
-    if (stream != 0) {
-        streamWait({stream}, {0});
-    }
-}
 
 size_t
 IVFFlat::getGpuVectorsEncodingSize_(int numVecs) const {
@@ -267,55 +214,57 @@ IVFFlat::query(Tensor<float, 2, true>& queries,
     quantizer_->reconstruct(coarseIndices, residualBase);
   }
 
-  if (k > 2048) {
-    runIVFFlatScanLargeK(queries,
-                      coarseIndices,
-                      deviceListDataPointers_,
-                      deviceListIndexPointers_,
-                      indicesOptions_,
-                      deviceListLengths_,
-                      maxListLength_,
-                      k,
-                      metric_,
-                      useResidual_,
-                      residualBase,
-                      scalarQ_.get(),
-                      outDistances,
-                      outIndices,
-                      resources_);
+  // if (k > 2048) {
+  //   runIVFFlatScanLargeK(queries,
+  //                     coarseIndices,
+  //                     deviceListDataPointers_,
+  //                     deviceListIndexPointers_,
+  //                     indicesOptions_,
+  //                     deviceListLengths_,
+  //                     maxListLength_,
+  //                     k,
+  //                     metric_,
+  //                     useResidual_,
+  //                     residualBase,
+  //                     scalarQ_.get(),
+  //                     outDistances,
+  //                     outIndices,
+  //                     resources_);
+  // } else {
+  // }
+
+  if (interleavedLayout_) {
+    runIVFInterleavedScan(queries,
+                          coarseIndices,
+                          deviceListDataPointers_,
+                          deviceListIndexPointers_,
+                          indicesOptions_,
+                          deviceListLengths_,
+                          k,
+                          metric_,
+                          useResidual_,
+                          residualBase,
+                          scalarQ_.get(),
+                          outDistances,
+                          outIndices,
+                          resources_);
   } else {
-    if (interleavedLayout_) {
-      runIVFInterleavedScan(queries,
-                            coarseIndices,
-                            deviceListDataPointers_,
-                            deviceListIndexPointers_,
-                            indicesOptions_,
-                            deviceListLengths_,
-                            k,
-                            metric_,
-                            useResidual_,
-                            residualBase,
-                            scalarQ_.get(),
-                            outDistances,
-                            outIndices,
-                            resources_);
-    } else {
-      runIVFFlatScan(queries,
-                     coarseIndices,
-                     deviceListDataPointers_,
-                     deviceListIndexPointers_,
-                     indicesOptions_,
-                     deviceListLengths_,
-                     maxListLength_,
-                     k,
-                     metric_,
-                     useResidual_,
-                     residualBase,
-                     scalarQ_.get(),
-                     outDistances,
-                     outIndices,
-                     resources_);
-    }
+    runIVFFlatScan(queries,
+                   coarseIndices,
+                   bitset,
+                   deviceListDataPointers_,
+                   deviceListIndexPointers_,
+                   indicesOptions_,
+                   deviceListLengths_,
+                   maxListLength_,
+                   k,
+                   metric_,
+                   useResidual_,
+                   residualBase,
+                   scalarQ_.get(),
+                   outDistances,
+                   outIndices,
+                   resources_);
   }
 
   // If the GPU isn't storing indices (they are on the CPU side), we
@@ -414,8 +363,9 @@ IVFFlat::query(Tensor<float, 2, true>& queries,
                         curTile,
                         nprobe,
                         false);
-    DeviceTensor<float, 3, true>
-    residualBase(mem, {queries.getSize(0), nprobe, dim_}, stream);
+    DeviceTensor<float, 3, true> residualBase(
+      resources_, makeTempAlloc(AllocType::Other, stream),
+      {queries.getSize(0), nprobe, dim_});
 
     if (useResidual_) {
         // Reconstruct vectors from the quantizer
