@@ -519,6 +519,7 @@ runPQCodeDistancesMM(GpuResources* res,
 
   HostTensor<float, 4, true> debugT(outCodeDistancesF, stream);
 
+#ifdef FAISS_USE_FLOAT16
   if (useFloat16Lookup) {
     // Need to convert back to half in the output memory
     auto outCodeDistancesH = outCodeDistances.toTensor<half>();
@@ -526,6 +527,7 @@ runPQCodeDistancesMM(GpuResources* res,
                                   outCodeDistancesF,
                                   outCodeDistancesH);
   }
+#endif
 }
 
 // Must be kept in sync with runPQDistances
@@ -604,6 +606,7 @@ runPQCodeDistances(GpuResources* res,
   auto smem = (3 * dimsPerSubQuantizer) * sizeof(float)
     + coarseIndices.getSize(1) * sizeof(int);
 
+#ifdef FAISS_USE_FLOAT16
 #define RUN_CODE(DIMS, L2)                                              \
   do {                                                                  \
     if (useFloat16Lookup) {                                             \
@@ -622,6 +625,17 @@ runPQCodeDistances(GpuResources* res,
         coarseIndices, outCodeDistancesT);                              \
     }                                                                   \
   } while (0)
+#else
+#define RUN_CODE(DIMS, L2)                                              \
+    do {                                                                \
+      auto outCodeDistancesT = outCodeDistances.toTensor<float>();      \
+                                                                        \
+      pqCodeDistances<float, CentroidT, DIMS, L2><<<grid, block, smem, stream>>>( \
+        queries, kQueriesPerBlock,                                      \
+        coarseCentroids, pqCentroids,                                   \
+        coarseIndices, outCodeDistancesT);                              \
+    } while (0)
+#endif
 
 #define CODE_L2(DIMS)                           \
   do {                                          \

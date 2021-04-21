@@ -277,6 +277,7 @@ runPass1SelectLists(Tensor<int, 2, true>& prefixSumOffsets,
                     bool chooseLargest,
                     Tensor<float, 3, true>& heapDistances,
                     Tensor<int, 3, true>& heapIndices,
+                    Tensor<float, 2, true>& minDistances,
                     cudaStream_t stream) {
   // This is caught at a higher level
   FAISS_ASSERT(k <= GPU_MAX_SELECTION_K);
@@ -285,14 +286,14 @@ runPass1SelectLists(Tensor<int, 2, true>& prefixSumOffsets,
 
 #define RUN_PASS(BLOCK, NUM_WARP_Q, NUM_THREAD_Q, DIR)                  \
   do {                                                                  \
-    pass1SelectListsLimitDistance<BLOCK, NUM_WARP_Q, NUM_THREAD_Q, DIR>              \
+    pass1SelectListsLimitDistance<BLOCK, NUM_WARP_Q, NUM_THREAD_Q, DIR> \
       <<<grid, BLOCK, 0, stream>>>(prefixSumOffsets,                    \
                                    distance,                            \
                                    nprobe,                              \
                                    k,                                   \
                                    heapDistances,                       \
-                                   heapIndices,
-                                   minDistances);                        \
+                                   heapIndices,                         \
+                                   minDistances);                       \
     CUDA_TEST_ERROR();                                                  \
     return; /* success */                                               \
   } while (0)

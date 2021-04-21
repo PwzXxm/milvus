@@ -258,7 +258,7 @@ void runL2SelectMin(Tensor<T, 2, true>& productDistances,
   } else {
     auto grid = dim3(outDistances.getSize(0));
 
-#define RUN_L2_SELECT(BLOCK, NUM_WARP_Q, NUM_THREAD_Q)                  \
+#define RUN_L2_SELECT_BITSET(BLOCK, NUM_WARP_Q, NUM_THREAD_Q)                  \
     do {                                                                \
       l2SelectMinK<T, NUM_WARP_Q, NUM_THREAD_Q, BLOCK>                  \
         <<<grid, BLOCK, 0, stream>>>(productDistances, centroidDistances, bitset, \
@@ -268,22 +268,22 @@ void runL2SelectMin(Tensor<T, 2, true>& productDistances,
 
     // block size 128 for everything <= 1024
     if (k <= 32) {
-      RUN_L2_SELECT(128, 32, 2);
+      RUN_L2_SELECT_BITSET(128, 32, 2);
     } else if (k <= 64) {
-      RUN_L2_SELECT(128, 64, 3);
+      RUN_L2_SELECT_BITSET(128, 64, 3);
     } else if (k <= 128) {
-      RUN_L2_SELECT(128, 128, 3);
+      RUN_L2_SELECT_BITSET(128, 128, 3);
     } else if (k <= 256) {
-      RUN_L2_SELECT(128, 256, 4);
+      RUN_L2_SELECT_BITSET(128, 256, 4);
     } else if (k <= 512) {
-      RUN_L2_SELECT(128, 512, 8);
+      RUN_L2_SELECT_BITSET(128, 512, 8);
     } else if (k <= 1024) {
-      RUN_L2_SELECT(128, 1024, 8);
+      RUN_L2_SELECT_BITSET(128, 1024, 8);
 
 #if GPU_MAX_SELECTION_K >= 2048
     } else if (k <= 2048) {
       // smaller block for less shared memory
-      RUN_L2_SELECT(64, 2048, 8);
+      RUN_L2_SELECT_BITSET(64, 2048, 8);
 #endif
 
     } else {
