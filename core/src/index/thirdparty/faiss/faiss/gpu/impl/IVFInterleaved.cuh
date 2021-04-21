@@ -12,6 +12,7 @@
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/impl/DistanceUtils.cuh>
 #include <faiss/gpu/impl/GpuScalarQuantizer.cuh>
+#include <faiss/gpu/impl/IVFUtils.cuh>
 #include <faiss/gpu/utils/Comparators.cuh>
 #include <faiss/gpu/utils/ConversionOperators.cuh>
 #include <faiss/gpu/utils/DeviceDefs.cuh>
@@ -38,7 +39,10 @@ template <typename Codec,
 __global__ void
 ivfInterleavedScan(Tensor<float, 2, true> queries,
                    Tensor<float, 3, true> residualBase,
+                   Tensor<uint8_t, 1, true>& bitset,
+                   IndicesOptions opt,
                    Tensor<int, 2, true> listIds,
+                   void** listIndices,
                    void** allListData,
                    int* listLengths,
                    Codec codec,
@@ -182,7 +186,10 @@ ivfInterleavedScan(Tensor<float, 2, true> queries,
     }
 
     if (valid) {
-      heap.addThreadQ(dist.reduce(), vec);
+      Index::idx_t index = getUserIndex(listId, block * wordsPerVectorBlock, listIndices, opt);
+      if (bitset.getSize(0) == 0 || (!(bitset[index >> 3] & (0x1 << (index & 0x7))))) {
+        heap.addThreadQ(dist.reduce(), vec);
+      }
     }
 
     heap.checkThreadQ();
@@ -212,7 +219,10 @@ ivfInterleavedScan(Tensor<float, 2, true> queries,
         <<<grid, THREADS, codec.getSmemSize(dim), stream>>>(            \
         queries,                                                        \
         residualBase,                                                   \
+        bitset,                                                         \
+        indicesOptions,                                                 \
         listIds,                                                        \
+        listIndices.data().get(),                                       \
         listData.data().get(),                                          \
         listLengths.data().get(),                                       \
         codec,                                                          \
@@ -225,7 +235,10 @@ ivfInterleavedScan(Tensor<float, 2, true> queries,
         <<<grid, THREADS, codec.getSmemSize(dim), stream>>>(            \
           queries,                                                      \
           residualBase,                                                 \
+          bitset,                                                       \
+          indicesOptions,                                               \
           listIds,                                                      \
+          listIndices.data().get(),                                     \
           listData.data().get(),                                        \
           listLengths.data().get(),                                     \
           codec,                                                        \
@@ -352,6 +365,7 @@ ivfInterleavedScan(Tensor<float, 2, true> queries,
 // with all implementations
 void runIVFInterleavedScan(Tensor<float, 2, true>& queries,
                            Tensor<int, 2, true>& listIds,
+                           Tensor<uint8_t, 1, true>& bitset,
                            thrust::device_vector<void*>& listData,
                            thrust::device_vector<void*>& listIndices,
                            IndicesOptions indicesOptions,

@@ -15,6 +15,7 @@
 void ivfInterleavedScanImpl_ ## WARP_Q ## _(                            \
   Tensor<float, 2, true>& queries,                                      \
   Tensor<int, 2, true>& listIds,                                        \
+  Tensor<uint8_t, 1, true>& bitset,                                     \
   thrust::device_vector<void*>& listData,                               \
   thrust::device_vector<void*>& listIndices,                            \
   IndicesOptions indicesOptions,                                        \
@@ -39,6 +40,7 @@ void ivfInterleavedScanImpl_ ## WARP_Q ## _(                            \
 void ivfInterleavedScanImpl_ ## WARP_Q ## _(                            \
   Tensor<float, 2, true>& queries,                                      \
   Tensor<int, 2, true>& listIds,                                        \
+  Tensor<uint8_t, 1, true>& bitset,                                     \
   thrust::device_vector<void*>& listData,                               \
   thrust::device_vector<void*>& listIndices,                            \
   IndicesOptions indicesOptions,                                        \
@@ -56,6 +58,7 @@ void ivfInterleavedScanImpl_ ## WARP_Q ## _(                            \
   ivfInterleavedScanImpl_ ## WARP_Q ## _(               \
   queries,                                              \
   listIds,                                              \
+  bitset,
   listData,                                             \
   listIndices,                                          \
   indicesOptions,                                       \

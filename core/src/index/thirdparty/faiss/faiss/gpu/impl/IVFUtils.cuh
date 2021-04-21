@@ -46,14 +46,30 @@ inline __device__ int binarySearchForBucket(int* prefixSumOffsets,
     return start;
 }
 
-inline __device__ long
+inline __device__ Index::idx_t
+getUserIndex(int listId,
+             int listOffset,
+             void** listIndices,
+             IndicesOptions opt) {
+    Index::idx_t index = -1;
+
+    if (opt == INDICES_32_BIT) {
+      index = (Index::idx_t) ((int*) listIndices[listId])[listOffset];
+    } else if (opt == INDICES_64_BIT) {
+      index = ((Index::idx_t*) listIndices[listId])[listOffset];
+    } else {
+      index = ((Index::idx_t) listId << 32 | (Index::idx_t) listOffset);
+    }
+    return index;
+}
+
+inline __device__ Index::idx_t
 getListIndex(int queryId,
              int offset,
              void** listIndices,
              Tensor<int, 2, true>& prefixSumOffsets,
              Tensor<int, 2, true>& topQueryToCentroid,
              IndicesOptions opt) {
-    long index = -1;
 
     // In order to determine the actual user index, we need to first
     // determine what list it was in.
@@ -72,15 +88,7 @@ getListIndex(int queryId,
     int listOffset = offset - listStart;
 
     // This gives us our final index
-    if (opt == INDICES_32_BIT) {
-        index = (long) ((int*) listIndices[listId])[listOffset];
-    } else if (opt == INDICES_64_BIT) {
-        index = ((long*) listIndices[listId])[listOffset];
-    } else {
-        index = ((long) listId << 32 | (long) listOffset);
-    }
-
-    return index;
+    return getUserIndex(listId, listOffset, listIndices, opt);
 }
 
 /// Function for multi-pass scanning that collects the length of
