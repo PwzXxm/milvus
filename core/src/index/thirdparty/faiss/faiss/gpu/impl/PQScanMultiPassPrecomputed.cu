@@ -426,7 +426,7 @@ runMultiPassTile(GpuResources* res,
     if (useFloat16Lookup) {
       smem = sizeof(half);
     }
-#endif;
+#endif
 
     smem *= numSubQuantizers * numSubQuantizerCodes;
     FAISS_ASSERT(smem <= getMaxSharedMemPerBlockCurrentDevice());
