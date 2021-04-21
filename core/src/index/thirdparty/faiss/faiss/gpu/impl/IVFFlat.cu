@@ -345,7 +345,7 @@ IVFFlat::query(Tensor<float, 2, true>& queries,
   HostTensor<Index::idx_t, 2, true> hostOutIndices(outIndices, stream);
   HostTensor<float, 2, true> hostOutDistances(outDistances, stream);
   float* tmpDistances = hostOutDistances.data(); 
-  long* tmpIndices = hostOutIndices.data();
+  Index::idx_t* tmpIndices = hostOutIndices.data();
   const int nprobeTile = 8;
   
   for (int i = 0; i < nprobe; i += nprobeTile) {
@@ -391,7 +391,7 @@ IVFFlat::query(Tensor<float, 2, true>& queries,
                    resources_);
 
     fromDevice<float,2>(outDistances, tmpDistances, stream);
-    fromDevice<long,2>(outIndices, tmpIndices, stream);
+    fromDevice<Index::idx_t,2>(outIndices, tmpIndices, stream);
     if(i) {
           for(int d = 0; d < queries.getSize(0); d ++) {
             for(int m = 0; m < k; m ++) {

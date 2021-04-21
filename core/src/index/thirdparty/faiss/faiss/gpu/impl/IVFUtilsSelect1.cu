@@ -63,7 +63,7 @@ pass1SelectLists(void** listIndices,
   int i = threadIdx.x;
   auto distanceStart = distance[start].data();
   bool bitsetEmpty = (bitset.getSize(0) == 0);
-  long index = -1;
+  Index::idx_t index = -1;
 
   // BlockSelect add cannot be used in a warp divergent circumstance; we
   // handle the remainder warp below

@@ -458,7 +458,7 @@ IVFBase::copyIndicesFromCpu_(const idx_t* indices,
         std::vector<int> indices32(numVecs);
         for (size_t i = 0; i < numVecs; ++i) {
             auto ind = indices[i];
-            FAISS_ASSERT(ind <= (long) std::numeric_limits<int>::max());
+            FAISS_ASSERT(ind <= (Index::idx_t) std::numeric_limits<int>::max());
             indices32[i] = (int) ind;
         }
 

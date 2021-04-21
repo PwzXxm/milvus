@@ -203,7 +203,7 @@ runIVFFlatScanTileSlice(
                    //float minDist,
                    /* output */
                    Tensor<float, 2, true>& outDistances,
-                   Tensor<long, 2, true>& outIndices,
+                   Tensor<Index::idx_t, 2, true>& outIndices,
                    /* CUDA stream */
                    cudaStream_t stream,
                     GpuResources* res
@@ -326,7 +326,7 @@ runIVFFlatScanTile(Tensor<float, 2, true>& queries,
                    Tensor<float, 3, true>& residualBase,
                    GpuScalarQuantizer* scalarQ,
                    Tensor<float, 2, true>& outDistances,
-                   Tensor<long, 2, true>& outIndices,
+                   Tensor<Index::idx_t, 2, true>& outIndices,
                    cudaStream_t stream,
                    GpuResources* res) {
   int dim = queries.getSize(1);
@@ -633,7 +633,7 @@ runIVFFlatScanLargeK(Tensor<float, 2, true>& queries,
                      // output
                      Tensor<float, 2, true>& outDistances,
                      // output
-                     Tensor<long, 2, true>& outIndices,
+                     Tensor<Index::idx_t, 2, true>& outIndices,
                      GpuResources* res) {
   GPU_FAISS_ASSERT_MSG(k > 2048, "must be K > 2048");
 
