@@ -164,7 +164,8 @@ ivfFlatScan(Tensor<float, 2, true> queries,
 
   auto residualBaseSlice = residualBase[queryId][probeId].data();
 
-  codec.setSmem(smem, dim);
+  codec.initKernel(smem, dim);
+  __syncthreads();
 
   IVFFlatScan<Codec, Metric>::scan(query,
                                    useResidual,
@@ -348,7 +349,8 @@ runIVFFlatScanTile(Tensor<float, 2, true>& queries,
 
   // Calculate offset lengths, so we know where to write out
   // intermediate results
-  runCalcListOffsets(listIds, listLengths, prefixSumOffsets, thrustMem, stream);
+  runCalcListOffsets(
+    res, listIds, listLengths, prefixSumOffsets, thrustMem, stream);
 
   auto grid = dim3(listIds.getSize(1), listIds.getSize(0));
   auto block = dim3(kWarpSize * kIVFFlatScanWarps);
@@ -422,9 +424,9 @@ runIVFFlatScanTile(Tensor<float, 2, true>& queries,
         if (false) {
           // FIXME: investigate 32 bit load perf issues
 //        if (dim % 2 == 0) {
-          Codec<(int)QuantizerType::QT_fp16, 2>
-            codec(scalarQ->code_size);
-          HANDLE_METRICS;
+          // Codec<(int)QuantizerType::QT_fp16, 2>
+          //   codec(scalarQ->code_size);
+          // HANDLE_METRICS;
         } else {
           Codec<(int)QuantizerType::QT_fp16, 1>
             codec(scalarQ->code_size);
@@ -642,22 +644,20 @@ runIVFFlatScanLargeK(Tensor<float, 2, true>& queries,
   constexpr int kThrustMemSize = 16384;
 
   int nprobe = listIds.getSize(1);
-
-  auto& mem = res->getMemoryManagerCurrentDevice();
   auto stream = res->getDefaultStreamCurrentDevice();
 
   // Make a reservation for Thrust to do its dirty work (global memory
   // cross-block reduction space); hopefully this is large enough.
   DeviceTensor<char, 1, true> thrustMem1(
-    mem, {kThrustMemSize}, stream);
+    res, makeTempAlloc(AllocType::Other, stream), {kThrustMemSize});
   DeviceTensor<char, 1, true> thrustMem2(
-    mem, {kThrustMemSize}, stream);
+    res, makeTempAlloc(AllocType::Other, stream), {kThrustMemSize});
   DeviceTensor<char, 1, true>* thrustMem[2] =
     {&thrustMem1, &thrustMem2};
 
   // How much temporary storage is available?
   // If possible, we'd like to fit within the space available.
-  size_t sizeAvailable = mem.getSizeAvailable();
+  size_t sizeAvailable = res->getTempMemoryAvailableCurrentDevice();
 
   // We run two passes of heap selection
   // This is the size of the first-level heap passes
@@ -692,9 +692,9 @@ runIVFFlatScanLargeK(Tensor<float, 2, true>& queries,
   // Make sure there is space prior to the start which will be 0, and
   // will handle the boundary condition without branches
   DeviceTensor<int, 1, true> prefixSumOffsetSpace1(
-    mem, {queryTileSize * nprobe + 1}, stream);
+    res, makeTempAlloc(AllocType::Other, stream), {queryTileSize * nprobe + 1});
   DeviceTensor<int, 1, true> prefixSumOffsetSpace2(
-    mem, {queryTileSize * nprobe + 1}, stream);
+    res, makeTempAlloc(AllocType::Other, stream), {queryTileSize * nprobe + 1});
 
   DeviceTensor<int, 2, true> prefixSumOffsets1(
     prefixSumOffsetSpace1[1].data(),
@@ -717,9 +717,11 @@ runIVFFlatScanLargeK(Tensor<float, 2, true>& queries,
                               stream));
 
   DeviceTensor<float, 1, true> allDistances1(
-    mem, {queryTileSize * nprobe * maxListLength}, stream);
+    res, makeTempAlloc(AllocType::Other, stream),
+    {queryTileSize * nprobe * maxListLength});
   DeviceTensor<float, 1, true> allDistances2(
-    mem, {queryTileSize * nprobe * maxListLength}, stream);
+    res, makeTempAlloc(AllocType::Other, stream),
+    {queryTileSize * nprobe * maxListLength});
   DeviceTensor<float, 1, true>* allDistances[2] =
     {&allDistances1, &allDistances2};
 
@@ -727,37 +729,47 @@ runIVFFlatScanLargeK(Tensor<float, 2, true>& queries,
   const int last_k = k % 2048;
 
   DeviceTensor<float, 3, true> heapDistances1(
-    mem, {queryTileSize, pass2Chunks, slice_k}, stream);
+    res, makeTempAlloc(AllocType::Other, stream),
+    {queryTileSize, pass2Chunks, slice_k});
   DeviceTensor<float, 3, true> heapDistances2(
-    mem, {queryTileSize, pass2Chunks, slice_k}, stream);
+    res, makeTempAlloc(AllocType::Other, stream),
+    {queryTileSize, pass2Chunks, slice_k});
   DeviceTensor<float, 3, true>* heapDistances[2] =
     {&heapDistances1, &heapDistances2};
 
   DeviceTensor<int, 3, true> heapIndices1(
-    mem, {queryTileSize, pass2Chunks, slice_k}, stream);
+    res, makeTempAlloc(AllocType::Other, stream),
+    {queryTileSize, pass2Chunks, slice_k});
   DeviceTensor<int, 3, true> heapIndices2(
-    mem, {queryTileSize, pass2Chunks, slice_k}, stream);
+    res, makeTempAlloc(AllocType::Other, stream),
+    {queryTileSize, pass2Chunks, slice_k});
   DeviceTensor<int, 3, true>* heapIndices[2] =
     {&heapIndices1, &heapIndices2};
 
   DeviceTensor<float, 3, true> lastHeapDistances1(
-    mem, {queryTileSize, pass2Chunks, last_k}, stream);
+    res, makeTempAlloc(AllocType::Other, stream),
+    {queryTileSize, pass2Chunks, last_k});
   DeviceTensor<float, 3, true> lastHeapDistances2(
-    mem, {queryTileSize, pass2Chunks, last_k}, stream);
+    res, makeTempAlloc(AllocType::Other, stream),
+    {queryTileSize, pass2Chunks, last_k});
   DeviceTensor<float, 3, true>* lastHeapDistances[2] =
     {&lastHeapDistances1, &lastHeapDistances2};
 
   DeviceTensor<int, 3, true> lastHeapIndices1(
-    mem, {queryTileSize, pass2Chunks, last_k}, stream);
+    res, makeTempAlloc(AllocType::Other, stream),
+    {queryTileSize, pass2Chunks, last_k});
   DeviceTensor<int, 3, true> lastHeapIndices2(
-    mem, {queryTileSize, pass2Chunks, last_k}, stream);
+    res, makeTempAlloc(AllocType::Other, stream),
+    {queryTileSize, pass2Chunks, last_k});
   DeviceTensor<int, 3, true>* lastHeapIndices[2] =
     {&lastHeapIndices1, &lastHeapIndices2};
 
   DeviceTensor<float, 2, true> minDistances1(
-    mem, {queryTileSize, 1}, stream);
+    res, makeTempAlloc(AllocType::Other, stream),
+    {queryTileSize, 1});
   DeviceTensor<float, 2, true> minDistances2(
-    mem, {queryTileSize, 1}, stream);
+    res, makeTempAlloc(AllocType::Other, stream),
+    {queryTileSize, 1});
   DeviceTensor<float, 2, true>* minDistances[2] =
     {&minDistances1, &minDistances2};
 
