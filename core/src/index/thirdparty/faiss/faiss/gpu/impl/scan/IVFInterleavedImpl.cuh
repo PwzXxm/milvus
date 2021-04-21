@@ -58,7 +58,7 @@ void ivfInterleavedScanImpl_ ## WARP_Q ## _(                            \
   ivfInterleavedScanImpl_ ## WARP_Q ## _(               \
   queries,                                              \
   listIds,                                              \
-  bitset,
+  bitset,                                               \
   listData,                                             \
   listIndices,                                          \
   indicesOptions,                                       \

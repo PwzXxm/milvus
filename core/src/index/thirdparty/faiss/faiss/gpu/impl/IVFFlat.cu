@@ -121,6 +121,7 @@ IVFFlat::translateCodesFromGpu_(std::vector<uint8_t> codes,
 void
 IVFFlat::appendVectors_(Tensor<float, 2, true>& vecs,
                         Tensor<Index::idx_t, 1, true>& indices,
+                        Tensor<uint8_t, 1, true>& bitset,
                         Tensor<int, 1, true>& uniqueLists,
                         Tensor<int, 1, true>& vectorsByUniqueList,
                         Tensor<int, 1, true>& uniqueListVectorStart,
@@ -352,18 +353,18 @@ IVFFlat::query(Tensor<float, 2, true>& queries,
     int curTile = min(nprobeTile, nprobe-i);
 
     quantizer_->query(queries,
-                        coarseBitset,
-                        curTile,
-                        metric_,
-                        metricArg_,
-                        coarseDistances,
-                        coarseIndices,
-                        hostCoarseDistances,
-                        hostCoarseIndices,
-                        i,
-                        curTile,
-                        nprobe,
-                        false);
+                      coarseBitset,
+                      curTile,
+                      metric_,
+                      metricArg_,
+                      coarseDistances,
+                      coarseIndices,
+                      hostCoarseDistances,
+                      hostCoarseIndices,
+                      i,
+                      curTile,
+                      nprobe,
+                      false);
     DeviceTensor<float, 3, true> residualBase(
       resources_, makeTempAlloc(AllocType::Other, stream),
       {queries.getSize(0), nprobe, dim_});

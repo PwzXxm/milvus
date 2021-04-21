@@ -126,6 +126,7 @@ IVFPQ::setPrecomputedCodes(bool enable) {
 void
 IVFPQ::appendVectors_(Tensor<float, 2, true>& vecs,
                       Tensor<Index::idx_t, 1, true>& indices,
+                      Tensor<uint8_t, 1, true>& bitset,
                       Tensor<int, 1, true>& uniqueLists,
                       Tensor<int, 1, true>& vectorsByUniqueList,
                       Tensor<int, 1, true>& uniqueListVectorStart,
@@ -151,6 +152,7 @@ IVFPQ::appendVectors_(Tensor<float, 2, true>& vecs,
       resources_, makeTempAlloc(AllocType::Other, stream),
       {vecs.getSize(0), vecs.getSize(1)});
 
+#ifdef FAISS_USE_FLOAT16
     if (quantizer_->getUseFloat16()) {
       auto& coarseCentroids = quantizer_->getVectorsFloat16Ref();
       runCalcResidual(vecs, coarseCentroids, listIds, residuals, stream);
@@ -158,6 +160,10 @@ IVFPQ::appendVectors_(Tensor<float, 2, true>& vecs,
       auto& coarseCentroids = quantizer_->getVectorsFloat32Ref();
       runCalcResidual(vecs, coarseCentroids, listIds, residuals, stream);
     }
+#else
+    auto& coarseCentroids = quantizer_->getVectorsFloat32Ref();
+    runCalcResidual(vecs, coarseCentroids, listIds, residuals, stream);
+#endif
 
     // Residuals are in the form
     // (vec x numSubQuantizer x dimPerSubQuantizer)
@@ -201,6 +207,7 @@ IVFPQ::appendVectors_(Tensor<float, 2, true>& vecs,
                     nullptr, // no precomputed norms
                     residualsTransposeView,
                     true, // residualsTransposeView is row major
+                    bitset,
                     1,
                     closestSubQDistanceView,
                     closestSubQIndexView,

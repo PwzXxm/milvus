@@ -119,6 +119,7 @@ protected:
   /// Append vectors to our on-device lists
   virtual void appendVectors_(Tensor<float, 2, true>& vecs,
                               Tensor<Index::idx_t, 1, true>& indices,
+                              Tensor<uint8_t, 1, true>& bitset,
                               Tensor<int, 1, true>& uniqueLists,
                               Tensor<int, 1, true>& vectorsByUniqueList,
                               Tensor<int, 1, true>& uniqueListVectorStart,

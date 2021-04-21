@@ -765,6 +765,7 @@ IVFBase::addVectors(Tensor<float, 2, true>& vecs,
   // Actually encode and append the vectors
   appendVectors_(vecs,
                  indices,
+                 bitset,
                  uniqueListsDevice,
                  vectorsByUniqueListDevice,
                  uniqueListVectorStartDevice,
