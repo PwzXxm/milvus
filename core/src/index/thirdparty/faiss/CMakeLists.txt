@@ -30,9 +30,11 @@ if (FAISS_CXXFLAGS)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FAISS_CXXFLAGS} ${FAISS_CPPFLAGS}")
 endif()
 
-if(FAISS_ENABLE_GPU)
+if (FAISS_ENABLE_GPU)
   # externalproject_add use semicolon to separate commands, revert to desired format
-  string(REPLACE ":" ";" CMAKE_CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES})
+  if (CMAKE_CUDA_ARCHITECTURES)
+    string(REPLACE ":" ";" CMAKE_CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES})
+  endif()
   set(CMAKE_CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
   enable_language(CUDA)
 endif()
