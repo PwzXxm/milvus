@@ -24,7 +24,9 @@ inline bool isSQSupported(QuantizerType qtype) {
     case QuantizerType::QT_4bit:
     case QuantizerType::QT_4bit_uniform:
     case QuantizerType::QT_6bit:
+#ifdef FAISS_USE_FLOAT16
     case QuantizerType::QT_fp16:
+#endif
       return true;
     default:
       return false;
@@ -126,6 +128,7 @@ struct CodecFloat {
 /////
 
 // Arbitrary dimension fp16
+#ifdef FAISS_USE_FLOAT16
 template <>
 struct Codec<(int)QuantizerType::QT_fp16, 1> {
   /// How many dimensions per iteration we are handling for encoding or decoding
@@ -176,6 +179,7 @@ struct Codec<(int)QuantizerType::QT_fp16, 1> {
 
   int bytesPerVec;
 };
+#endif
 
 /////
 //

@@ -409,6 +409,7 @@ IVFPQ::precomputeCodesT_() {
 
     runTransposeAny(centroidView, 0, 1, centroidsTransposed, stream);
 
+#ifdef FAISS_USE_FLOAT16
     if (std::is_same<CentroidT, half>::value) {
       // cuBLAS does not support f32 x f16 = f32, convert CentroidT to f32 if
       // necessary
@@ -434,6 +435,14 @@ IVFPQ::precomputeCodesT_() {
                          resources_->getBlasHandleCurrentDevice(),
                          stream);
     }
+#else
+    runBatchMatrixMult(coarsePQProduct, false,
+                       centroidsTransposed, false,
+                       pqCentroidsMiddleCode_, true,
+                       2.0f, 0.0f,
+                       resources_->getBlasHandleCurrentDevice(),
+                       stream);
+#endif
   }
 
   // Transpose (sub q)(centroid id)(code id) to

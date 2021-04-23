@@ -260,8 +260,10 @@ Quantizer *select_quantizer_1 (
         return new QuantizerTemplate<Codec8bit, true, SIMDWIDTH>(d, trained);
     case QuantizerType::QT_4bit_uniform:
         return new QuantizerTemplate<Codec4bit, true, SIMDWIDTH>(d, trained);
+#ifdef FAISS_USE_FLOAT16
     case QuantizerType::QT_fp16:
         return new QuantizerFP16<SIMDWIDTH> (d, trained);
+#endif
     case QuantizerType::QT_8bit_direct:
         return new Quantizer8bitDirect<SIMDWIDTH> (d, trained);
     }
@@ -497,9 +499,11 @@ SQDistanceComputer *select_distance_computer (
         return new DCTemplate<QuantizerTemplate<Codec4bit, false, SIMDWIDTH>,
                               Sim, SIMDWIDTH>(d, trained);
 
+#ifdef FAISS_USE_FLOAT16
     case QuantizerType::QT_fp16:
         return new DCTemplate
             <QuantizerFP16<SIMDWIDTH>, Sim, SIMDWIDTH>(d, trained);
+#endif
 
     case QuantizerType::QT_8bit_direct:
         if (d % 16 == 0) {
@@ -563,10 +567,12 @@ InvertedListScanner* sel1_InvertedListScanner (
     case QuantizerType::QT_6bit:
         return sel12_InvertedListScanner
             <Similarity, Codec6bit, false>(sq, quantizer, store_pairs, r);
+#ifdef FAISS_USE_FLOAT16
     case QuantizerType::QT_fp16:
         return sel2_InvertedListScanner
             <DCTemplate<QuantizerFP16<SIMDWIDTH>, Similarity, SIMDWIDTH> >
             (sq, quantizer, store_pairs, r);
+#endif
     case QuantizerType::QT_8bit_direct:
         if (sq->d % 16 == 0) {
             return sel2_InvertedListScanner

@@ -272,7 +272,9 @@ Index *index_factory (int d, const char *description_in, MetricType metric)
                 stok == "SQ8" ? QuantizerType::QT_8bit :
                 stok == "SQ6" ? QuantizerType::QT_6bit :
                 stok == "SQ4" ? QuantizerType::QT_4bit :
+#ifdef FAISS_USE_FLOAT16
                 stok == "SQfp16" ? QuantizerType::QT_fp16 :
+#endif
                 QuantizerType::QT_4bit;
             if (coarse_quantizer) {
                 FAISS_THROW_IF_NOT (!use_2layer);
@@ -295,7 +297,9 @@ Index *index_factory (int d, const char *description_in, MetricType metric)
                     stok == "SQ8Hybrid" ? QuantizerType::QT_8bit :
                     stok == "SQ6Hybrid" ? QuantizerType::QT_6bit :
                     stok == "SQ4Hybrid" ? QuantizerType::QT_4bit :
+#ifdef FAISS_USE_FLOAT16
                     stok == "SQfp16Hybrid" ? QuantizerType::QT_fp16 :
+#endif
                     QuantizerType::QT_4bit;
             FAISS_THROW_IF_NOT_MSG(coarse_quantizer,
                                    "SQ Hybrid only with an IVF");

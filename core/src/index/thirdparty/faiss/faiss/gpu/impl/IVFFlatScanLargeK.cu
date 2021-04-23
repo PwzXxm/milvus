@@ -419,6 +419,7 @@ runIVFFlatScanTile(Tensor<float, 2, true>& queries,
         }
       }
       break;
+#ifdef FAISS_USE_FLOAT16
       case QuantizerType::QT_fp16:
       {
         if (false) {
@@ -434,6 +435,7 @@ runIVFFlatScanTile(Tensor<float, 2, true>& queries,
         }
       }
       break;
+#endif
       case QuantizerType::QT_8bit_direct:
       {
         Codec<(int)QuantizerType::QT_8bit_direct, 1>

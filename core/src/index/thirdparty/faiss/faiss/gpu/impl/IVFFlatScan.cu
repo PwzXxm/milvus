@@ -269,6 +269,7 @@ runIVFFlatScanTile(GpuResources* res,
         HANDLE_METRICS;
       }
       break;
+#ifdef FAISS_USE_FLOAT16
       case QuantizerType::QT_fp16:
       {
         Codec<(int)QuantizerType::QT_fp16, 1>
@@ -276,6 +277,7 @@ runIVFFlatScanTile(GpuResources* res,
         HANDLE_METRICS;
       }
       break;
+#endif
       case QuantizerType::QT_8bit_direct:
       {
         Codec<(int)QuantizerType::QT_8bit_direct, 1>

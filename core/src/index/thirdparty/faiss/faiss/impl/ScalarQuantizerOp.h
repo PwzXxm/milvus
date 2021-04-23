@@ -27,7 +27,9 @@ enum class QuantizerType {
     QT_4bit,             ///< 4 bits per component
     QT_8bit_uniform,     ///< same, shared range for all dimensions
     QT_4bit_uniform,
+#ifdef FAISS_USE_FLOAT16
     QT_fp16,
+#endif
     QT_8bit_direct,      /// fast indexing of uint8s
     QT_6bit,             ///< 6 bits per component
 };

@@ -35,7 +35,9 @@ IndexScalarQuantizer::IndexScalarQuantizer
           sq (d, qtype)
 {
     is_trained =
+#ifdef FAISS_USE_FLOAT16
         qtype == QuantizerType::QT_fp16 ||
+#endif
         qtype == QuantizerType::QT_8bit_direct;
     code_size = sq.code_size;
 }

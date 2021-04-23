@@ -260,6 +260,7 @@ ivfInterleavedScan(Tensor<float, 2, true> queries,
                            stream);                                     \
   } while (0);
 
+#ifdef FAISS_USE_FLOAT16
 #define IVFINT_CODECS(METRIC_TYPE, THREADS, NUM_WARP_Q, NUM_THREAD_Q)   \
   do {                                                                  \
     if (!scalarQ) {                                                     \
@@ -335,6 +336,75 @@ ivfInterleavedScan(Tensor<float, 2, true> queries,
       }                                                                 \
     }                                                                   \
   } while (0)
+#else
+#define IVFINT_CODECS(METRIC_TYPE, THREADS, NUM_WARP_Q, NUM_THREAD_Q)   \
+  do {                                                                  \
+    if (!scalarQ) {                                                     \
+      using CodecT = CodecFloat;                                        \
+      CodecT codec(dim * sizeof(float));                                \
+      IVFINT_RUN(CodecT, METRIC_TYPE, THREADS, NUM_WARP_Q, NUM_THREAD_Q); \
+    } else {                                                            \
+      switch (scalarQ->qtype) {                                         \
+        case QuantizerType::QT_8bit:                                    \
+        {                                                               \
+          using CodecT = Codec<(int)QuantizerType::QT_8bit, 1>;         \
+          CodecT                                                        \
+            codec(scalarQ->code_size,                                   \
+                  scalarQ->gpuTrained.data(),                           \
+                  scalarQ->gpuTrained.data() + dim);                    \
+          IVFINT_RUN(CodecT, METRIC_TYPE, THREADS, NUM_WARP_Q, NUM_THREAD_Q); \
+        }                                                               \
+        break;                                                          \
+        case QuantizerType::QT_8bit_uniform:                            \
+        {                                                               \
+          using CodecT = Codec<(int)QuantizerType::QT_8bit_uniform, 1>; \
+          CodecT                                                        \
+            codec(scalarQ->code_size, scalarQ->trained[0], scalarQ->trained[1]); \
+          IVFINT_RUN(CodecT, METRIC_TYPE, THREADS, NUM_WARP_Q, NUM_THREAD_Q); \
+        }                                                               \
+        break;                                                          \
+        case QuantizerType::QT_8bit_direct:                             \
+        {                                                               \
+          using CodecT = Codec<(int)QuantizerType::QT_8bit_direct, 1>;  \
+          Codec<(int)QuantizerType::QT_8bit_direct, 1>                  \
+            codec(scalarQ->code_size);                                  \
+          IVFINT_RUN(CodecT, METRIC_TYPE, THREADS, NUM_WARP_Q, NUM_THREAD_Q); \
+        }                                                               \
+        break;                                                          \
+        case QuantizerType::QT_6bit:                                    \
+        {                                                               \
+          using CodecT = Codec<(int)QuantizerType::QT_6bit, 1>;         \
+          Codec<(int)QuantizerType::QT_6bit, 1>                         \
+            codec(scalarQ->code_size,                                   \
+                  scalarQ->gpuTrained.data(),                           \
+                  scalarQ->gpuTrained.data() + dim);                    \
+          IVFINT_RUN(CodecT, METRIC_TYPE, THREADS, NUM_WARP_Q, NUM_THREAD_Q); \
+        }                                                               \
+        break;                                                          \
+        case QuantizerType::QT_4bit:                                    \
+        {                                                               \
+          using CodecT = Codec<(int)QuantizerType::QT_4bit, 1>;         \
+          Codec<(int)QuantizerType::QT_4bit, 1>                         \
+            codec(scalarQ->code_size,                                   \
+                  scalarQ->gpuTrained.data(),                           \
+                  scalarQ->gpuTrained.data() + dim);                    \
+          IVFINT_RUN(CodecT, METRIC_TYPE, THREADS, NUM_WARP_Q, NUM_THREAD_Q); \
+        }                                                               \
+        break;                                                          \
+        case QuantizerType::QT_4bit_uniform:                            \
+        {                                                               \
+          using CodecT = Codec<(int)QuantizerType::QT_4bit_uniform, 1>; \
+          Codec<(int)QuantizerType::QT_4bit_uniform, 1>                 \
+            codec(scalarQ->code_size, scalarQ->trained[0], scalarQ->trained[1]); \
+          IVFINT_RUN(CodecT, METRIC_TYPE, THREADS, NUM_WARP_Q, NUM_THREAD_Q); \
+        }                                                               \
+        break;                                                          \
+        default:                                                        \
+          FAISS_ASSERT(false);                                          \
+      }                                                                 \
+    }                                                                   \
+  } while (0)
+#endif
 
 #define IVFINT_METRICS(THREADS, NUM_WARP_Q, NUM_THREAD_Q)               \
   do {                                                                  \

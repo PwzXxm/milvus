@@ -352,6 +352,7 @@ runMultiPassTile(GpuResources* res,
           allDistances);                                                \
     } while (0)
 
+#ifdef FAISS_USE_FLOAT16
     if (useFloat16Lookup) {
       auto precompTerm2T = precompTerm2.toTensor<half>();
       auto precompTerm3T = precompTerm3.toTensor<half>();
@@ -411,6 +412,36 @@ runMultiPassTile(GpuResources* res,
           break;
       }
     }
+#else
+    auto precompTerm2T = precompTerm2.toTensor<float>();
+    auto precompTerm3T = precompTerm3.toTensor<float>();
+
+    switch (bitsPerSubQuantizer) {
+      case 4:
+      {
+        RUN_INTERLEAVED(4, float);
+      }
+      break;
+      case 5:
+      {
+        RUN_INTERLEAVED(5, float);
+      }
+      break;
+      case 6:
+      {
+        RUN_INTERLEAVED(6, float);
+      }
+      break;
+      case 8:
+      {
+        RUN_INTERLEAVED(8, float);
+      }
+      break;
+      default:
+        FAISS_ASSERT(false);
+        break;
+    }
+#endif
   } else {
     // Convert all codes to a distance, and write out (distance,
     // index) values for all intermediate results

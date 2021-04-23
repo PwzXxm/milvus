@@ -231,6 +231,7 @@ runIVFFlatAppend(Tensor<int, 1, true>& listIds,
         RUN_APPEND;
       }
       break;
+#ifdef FAISS_USE_FLOAT16
       case QuantizerType::QT_fp16:
       {
         Codec<(int)QuantizerType::QT_fp16, 1>
@@ -238,6 +239,7 @@ runIVFFlatAppend(Tensor<int, 1, true>& listIds,
         RUN_APPEND;
       }
       break;
+#endif
       case QuantizerType::QT_8bit_direct:
       {
         Codec<(int)QuantizerType::QT_8bit_direct, 1>
@@ -494,8 +496,12 @@ runIVFFlatInterleavedAppend(Tensor<int, 1, true>& listIds,
   }
 
   // only implemented at the moment
-  FAISS_ASSERT(scalarQ->bits == 16 || scalarQ->bits <= 8);
+  // FAISS_ASSERT(scalarQ->bits == 16 || scalarQ->bits <= 8);
+  FAISS_ASSERT(scalarQ->bits <= 8);
 
+  //TODO: Since we only use SQ8, we disable SQ16 for now
+  // to avoid compiling half float, thus reduce the compilation time
+#ifdef FAISS_USE_FLOAT16
   if (scalarQ->bits == 16) {
     FAISS_ASSERT(scalarQ->qtype == QuantizerType::QT_fp16);
 
@@ -510,6 +516,9 @@ runIVFFlatInterleavedAppend(Tensor<int, 1, true>& listIds,
     RUN_APPEND(CodecT::EncodeT, CodecT::kEncodeBits, encodedVecs);
 
   } else if (scalarQ->bits <= 8) {
+#else
+ if (scalarQ->bits <= 8) {
+#endif
     DeviceTensor<uint8_t, 2, true> encodedVecs(
       res, makeTempAlloc(AllocType::Other, stream),
       {vecs.getSize(0), vecs.getSize(1)});

@@ -24,10 +24,12 @@ struct GetCudaType<float> {
   static constexpr cudaDataType_t Type = CUDA_R_32F;
 };
 
+#ifdef FAISS_USE_FLOAT16
 template <>
 struct GetCudaType<half> {
   static constexpr cudaDataType_t Type = CUDA_R_16F;
 };
+#endif
 
 template <typename AT, typename BT>
 cublasStatus_t

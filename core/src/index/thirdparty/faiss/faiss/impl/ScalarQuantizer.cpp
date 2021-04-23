@@ -72,10 +72,12 @@ void ScalarQuantizer::set_derived_sizes ()
         code_size = (d * 6 + 7) / 8;
         bits = 6;
         break;
+#ifdef FAISS_USE_FLOAT16
       case QuantizerType::QT_fp16:
         code_size = d * 2;
         bits = 16;
         break;
+#endif
     }
 }
 
@@ -97,7 +99,9 @@ void ScalarQuantizer::train (size_t n, const float *x)
         train_NonUniform (rangestat, rangestat_arg,
                           n, d, 1 << bit_per_dim, x, trained);
         break;
+#ifdef FAISS_USE_FLOAT16
     case QuantizerType::QT_fp16:
+#endif
     case QuantizerType::QT_8bit_direct:
         // no training necessary
         break;
