@@ -514,6 +514,11 @@ macro(build_faiss)
     set(FAISS_CXXFLAGS "-DFAISS_CXXFLAGS=${EP_CXX_FLAGS} -mf16c -O3")
     set(FAISS_CPPFLAGS "-DFAISS_CPPFLAGS=")
 
+    if (FAISS_WITH_MKL)
+        set(FAISS_CPPFLAGS "${FAISS_CPPFLAGS} -DFINTEGER=long -DMKL_ILP64 -m64 -I${MKL_LIB_PATH}/../../include")
+        set(FAISS_MKL_LIB "${MKL_LIB_PATH}")
+    endif ()
+
     if (KNOWHERE_GPU_VERSION)
         set(FAISS_CONFIGURE_ARGS ${FAISS_CONFIGURE_ARGS}
                 -DFAISS_ENABLE_GPU=ON
@@ -531,11 +536,10 @@ macro(build_faiss)
             ${FAISS_CFLAGS}
             ${FAISS_CXXFLAGS}
             ${FAISS_CPPFLAGS}
-            # ${FAISS_LDFLAGS}
             ${FAISS_CUDA_ROOT}
             -DFAISS_WITH_MKL=${FAISS_WITH_MKL}
+            -DMKL_LIBRARIES=${FAISS_MKL_LIB}
             -DCMAKE_BUILD_TYPE=Release
-            -DBUILD_SHARED_LIBS=ON
             -DFAISS_ENABLE_PYTHON=OFF
             -DBUILD_TESTING=OFF
             -DCMAKE_INSTALL_PREFIX:PATH=${FAISS_PREFIX}
