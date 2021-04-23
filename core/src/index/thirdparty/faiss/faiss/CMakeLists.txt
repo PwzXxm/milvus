@@ -213,6 +213,7 @@ find_package(MKL)
 if(MKL_FOUND AND FAISS_WITH_MKL)
   target_link_libraries(faiss PRIVATE ${MKL_LIBRARIES})
 else()
+  message(STATUS "Build Faiss with OpenBlas/LAPACK")
   find_package(BLAS REQUIRED)
   target_link_libraries(faiss PRIVATE ${BLAS_LIBRARIES})
 

@@ -535,6 +535,7 @@ macro(build_faiss)
             ${FAISS_CUDA_ROOT}
             -DFAISS_WITH_MKL=${FAISS_WITH_MKL}
             -DCMAKE_BUILD_TYPE=Release
+            -DBUILD_SHARED_LIBS=ON
             -DFAISS_ENABLE_PYTHON=OFF
             -DBUILD_TESTING=OFF
             -DCMAKE_INSTALL_PREFIX:PATH=${FAISS_PREFIX}
