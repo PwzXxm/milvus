@@ -210,7 +210,7 @@ find_package(OpenMP REQUIRED)
 target_link_libraries(faiss PRIVATE OpenMP::OpenMP_CXX)
 
 find_package(MKL)
-if(MKL_FOUND)
+if(MKL_FOUND AND FAISS_WITH_MKL)
   target_link_libraries(faiss PRIVATE ${MKL_LIBRARIES})
 else()
   find_package(BLAS REQUIRED)

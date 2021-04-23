@@ -513,19 +513,6 @@ macro(build_faiss)
     set(FAISS_CFLAGS "-DFAISS_CFLAGS=${EP_C_FLAGS}")
     set(FAISS_CXXFLAGS "-DFAISS_CXXFLAGS=${EP_CXX_FLAGS} -mf16c -O3")
     set(FAISS_CPPFLAGS "-DFAISS_CPPFLAGS=")
-    set(FAISS_LDFLAGS "-DFAISS_LDFLAGS=")
-
-    if (FAISS_WITH_MKL)
-        set(FAISS_CPPFLAGS "${FAISS_CPPFLAGS} -DFINTEGER=long -DMKL_ILP64 -m64 -I${MKL_LIB_PATH}/../../include")
-        set(FAISS_LDFLAGS "${FAISS_LDFLAGS} -L${MKL_LIB_PATH}")
-    else ()
-        message(STATUS "Build Faiss with OpenBlas/LAPACK")
-        if(OpenBLAS_FOUND)
-            set(FAISS_LDFLAGS "${FAISS_LDFLAGS} -L${OpenBLAS_LIB_DIR}")
-        else()
-            set(FAISS_LDFLAGS "${FAISS_LDFLAGS} -L${OPENBLAS_PREFIX}/lib")
-        endif()
-    endif ()
 
     if (KNOWHERE_GPU_VERSION)
         set(FAISS_CONFIGURE_ARGS ${FAISS_CONFIGURE_ARGS}
@@ -544,8 +531,9 @@ macro(build_faiss)
             ${FAISS_CFLAGS}
             ${FAISS_CXXFLAGS}
             ${FAISS_CPPFLAGS}
-            ${FAISS_LDFLAGS}
+            # ${FAISS_LDFLAGS}
             ${FAISS_CUDA_ROOT}
+            -DFAISS_WITH_MKL=${FAISS_WITH_MKL}
             -DCMAKE_BUILD_TYPE=Release
             -DFAISS_ENABLE_PYTHON=OFF
             -DBUILD_TESTING=OFF

@@ -41,10 +41,6 @@ endif()
 
 add_subdirectory(faiss)
 
-if (FAISS_LDFLAGS)
-  target_link_options(faiss PUBLIC "${FAISS_LDFLAGS}")
-endif()
-
 if(FAISS_ENABLE_GPU)
   add_subdirectory(faiss/gpu)
 endif()
