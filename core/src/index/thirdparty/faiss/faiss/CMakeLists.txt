@@ -189,7 +189,7 @@ endif()
 #   set_target_properties(faiss PROPERTIES OUTPUT_NAME "faiss_sse4")
 # endif()
 
-target_compile_options(faiss PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-mavx2 -mfma -mf16c -mpopcnt -mavx512f -mavx512dq -mavx512bw -msse4 -mpopcnt>)
+target_compile_options(faiss PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-mavx2 -mavx512f -mavx512dq -mavx512bw -mfma -mf16c -mpopcnt>)
 
 # Handle `#include <faiss/foo.h>`.
 target_include_directories(faiss PUBLIC
