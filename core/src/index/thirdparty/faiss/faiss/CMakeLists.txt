@@ -4,6 +4,18 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+file(GLOB_RECURSE AVX2_CPP "*avx.cpp")
+add_library(faiss_avx2 OBJECT ${AVX2_CPP})
+target_compile_options(faiss_avx2 PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-mavx2 -mfma -mf16c -mpopcnt>)
+target_include_directories(faiss_avx2 PUBLIC
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>)
+
+file(GLOB_RECURSE AVX512_CPP "*avx512.cpp")
+add_library(faiss_avx512 OBJECT ${AVX512_CPP})
+target_compile_options(faiss_avx512 PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-mavx512f -mavx512dq -mavx512bw>)
+target_include_directories(faiss_avx512 PUBLIC
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>)
+
 add_library(faiss
   AutoTune.cpp
   BuilderSuspend.cpp
@@ -49,8 +61,8 @@ add_library(faiss
   impl/ScalarQuantizer.cpp
   impl/ScalarQuantizerDC.cpp
   impl/ScalarQuantizerOp.cpp
-  impl/ScalarQuantizerDC_avx512.cpp
-  impl/ScalarQuantizerDC_avx.cpp
+  # impl/ScalarQuantizerDC_avx512.cpp
+  # impl/ScalarQuantizerDC_avx.cpp
   impl/ScalarQuantizer.cpp
   impl/index_read.cpp
   impl/index_write.cpp
@@ -69,14 +81,16 @@ add_library(faiss
   utils/WorkerThread.cpp
   utils/distances.cpp
   utils/distances_simd.cpp
-  utils/distances_simd_avx.cpp
-  utils/distances_simd_avx512.cpp
+  # utils/distances_simd_avx.cpp
+  # utils/distances_simd_avx512.cpp
   utils/extra_distances.cpp
   utils/hamming.cpp
   utils/partitioning.cpp
   utils/quantize_lut.cpp
   utils/random.cpp
   utils/utils.cpp
+  $<TARGET_OBJECTS:faiss_avx2>
+  $<TARGET_OBJECTS:faiss_avx512>
 )
 
 set(FAISS_HEADERS
@@ -189,9 +203,6 @@ endif()
 #   set_target_properties(faiss PROPERTIES OUTPUT_NAME "faiss_sse4")
 # endif()
 
-target_compile_options(faiss PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-mavx2 -mavx512f -mavx512dq -mavx512bw -mfma -mf16c -mpopcnt>)
-
-# Handle `#include <faiss/foo.h>`.
 target_include_directories(faiss PUBLIC
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>)
 
