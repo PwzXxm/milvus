@@ -536,10 +536,9 @@ macro(build_faiss)
             ${FAISS_CFLAGS}
             ${FAISS_CXXFLAGS}
             ${FAISS_CPPFLAGS}
-            ${FAISS_CUDA_ROOT}
             -DFAISS_WITH_MKL=${FAISS_WITH_MKL}
             -DMKL_LIBRARIES=${FAISS_MKL_LIB}
-            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
             -DFAISS_ENABLE_PYTHON=OFF
             -DBUILD_TESTING=OFF
             -DCMAKE_INSTALL_PREFIX:PATH=${FAISS_PREFIX}
