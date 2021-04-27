@@ -135,9 +135,11 @@ struct HeapResultHandler {
             T * heap_dis = heap_dis_tab + i * k;
             TI * heap_ids = heap_ids_tab + i * k;
             T thresh = heap_dis[0];
+            const T* dis_tab_i = dis_tab + (j1 - j0) * (i - i0) - j0;
             for (size_t j = j0; j < j1; j++) {
                 if (!bitset || !bitset->test(j)) {
-                    T dis = *dis_tab++;
+                    T dis = dis_tab_i[j];
+                    // T dis = *dis_tab++;
                     if (C::cmp(thresh, dis)) {
                         heap_replace_top<C>(k, heap_dis, heap_ids, dis, j);
                         thresh = heap_dis[0];
