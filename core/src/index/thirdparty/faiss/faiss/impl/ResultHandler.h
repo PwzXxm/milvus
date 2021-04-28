@@ -370,9 +370,10 @@ struct ReservoirResultHandler {
 #pragma omp parallel for
         for (size_t i = i0; i < i1; i++) {
             ReservoirTopN<C> & reservoir = reservoirs[i - i0];
+            const T* dis_tab_i = dis_tab + (j1 - j0) * (i - i0) - j0;
             for (size_t j = j0; j < j1; j++) {
                 if (!bitset || !bitset->test(j)) {
-                    T dis = *dis_tab++;
+                    T dis = dis_tab_i[j];
                     reservoir.add(dis, j);
                 }
             }
