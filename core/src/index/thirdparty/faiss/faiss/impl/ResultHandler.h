@@ -149,6 +149,21 @@ struct HeapResultHandler {
         }
     }
 
+    void add_single_result(size_t i, T dis, TI idx) {
+        T * heap_dis = heap_dis_tab + i * k;
+        TI * heap_ids = heap_ids_tab + i * k;
+        if (C::cmp(heap_dis[0], dis)) {
+            heap_replace_top<C>(k, heap_dis, heap_ids, dis, idx);
+        }
+    }
+
+    void merge(size_t i, HeapResultHandler &rh) {
+        const size_t ki = i * k, uj = ki + k;
+        for (size_t j = ki; j < uj; ++j) {
+            add_single_result(i, rh.heap_dis_tab[j], rh.heap_ids_tab[j]);
+        }
+    }
+
     /// series of results for queries i0..i1 is done
     void end_multiple() {
         // maybe parallel for
@@ -377,6 +392,18 @@ struct ReservoirResultHandler {
                     reservoir.add(dis, j);
                 }
             }
+        }
+    }
+
+    void add_single_result(size_t i, T dis, TI idx) {
+        reservoirs[i - i0].add(dis, idx);
+    }
+
+    void merge(size_t i, ReservoirResultHandler &rh) {
+        const T* dis = rh.reservoir_dis.data() + (i - rh.i0) * rh.capacity;
+        const TI* ids = rh.reservoir_ids.data() + (i - rh.i0) * rh.capacity;
+        for (int j = 0; j < rh.capacity; ++j) {
+            add_single_result(i, dis[j], ids[j]);
         }
     }
 
