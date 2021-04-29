@@ -504,7 +504,7 @@ void knn_jaccard (const float * x,
         printf("jaccard sse not implemented!\n");
     } else {
         NopDistanceCorrection nop;
-        ReservoirResultHandler<CMax<float, int64_t>> res (
+        HeapResultHandler<CMax<float, int64_t>> res (
             ha->nh, ha->val, ha->ids, ha->k);
         knn_jaccard_blas (x, y, d, nx, ny, res, nop, bitset);
     }
