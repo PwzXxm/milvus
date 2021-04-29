@@ -392,7 +392,7 @@ static void knn_jaccard_blas (const float * x,
             /* collect minima */
 #pragma omp parallel for
             for (size_t i = i0; i < i1; i++) {
-                const float *ip_line = ip_block + (i - i0) * (j1 - j0);
+                float *ip_line = ip_block + (i - i0) * (j1 - j0);
 
                 for (size_t j = j0; j < j1; j++) {
                     if(!bitset || !bitset->test(j)){
@@ -404,6 +404,7 @@ static void knn_jaccard_blas (const float * x,
                         if (dis < 0) dis = 0;
 
                         dis = corr (dis, i, j);
+                        *ip_line = dis;
                     }
                     ip_line++;
                 }
