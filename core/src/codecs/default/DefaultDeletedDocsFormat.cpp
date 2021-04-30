@@ -25,6 +25,7 @@
 #undef BOOST_NO_CXX11_SCOPED_ENUMS
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "segment/Types.h"
@@ -66,7 +67,7 @@ DefaultDeletedDocsFormat::read(const storage::FSHandlerPtr& fs_ptr, segment::Del
         throw Exception(SERVER_WRITE_ERROR, err_msg);
     }
 
-    deleted_docs = std::make_shared<segment::DeletedDocs>(deleted_docs_list);
+    deleted_docs = std::make_shared<segment::DeletedDocs>(std::move(deleted_docs_list));
 
     if (::close(del_fd) == -1) {
         std::string err_msg = "Failed to close file: " + del_file_path + ", error: " + std::strerror(errno);
@@ -77,8 +78,6 @@ DefaultDeletedDocsFormat::read(const storage::FSHandlerPtr& fs_ptr, segment::Del
 
 void
 DefaultDeletedDocsFormat::write(const storage::FSHandlerPtr& fs_ptr, const segment::DeletedDocsPtr& deleted_docs) {
-    const std::lock_guard<std::mutex> lock(mutex_);
-
     std::string dir_path = fs_ptr->operation_ptr_->GetDirectory();
     const std::string del_file_path = dir_path + "/" + deleted_docs_filename_;
 
@@ -145,6 +144,7 @@ DefaultDeletedDocsFormat::write(const storage::FSHandlerPtr& fs_ptr, const segme
     }
 
     // Move temp file to delete file
+    const std::lock_guard<std::mutex> lock(mutex_);
     boost::filesystem::rename(temp_path, del_file_path);
     fs_ptr->operation_ptr_->CachePut(del_file_path);
 }

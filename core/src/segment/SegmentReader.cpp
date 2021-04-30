@@ -20,6 +20,7 @@
 #include <memory>
 
 #include "Vectors.h"
+#include "cache/CpuCacheMgr.h"
 #include "codecs/default/DefaultCodec.h"
 #include "config/Config.h"
 #include "utils/Log.h"
@@ -45,7 +46,6 @@ SegmentReader::Load() {
     try {
         fs_ptr_->operation_ptr_->CreateDirectory();
         default_codec.GetVectorsFormat()->read(fs_ptr_, segment_ptr_->vectors_ptr_);
-        default_codec.GetAttrsFormat()->read(fs_ptr_, segment_ptr_->attrs_ptr_);
         // default_codec.GetVectorIndexFormat()->read(fs_ptr_, segment_ptr_->vector_index_ptr_);
         default_codec.GetDeletedDocsFormat()->read(fs_ptr_, segment_ptr_->deleted_docs_ptr_);
     } catch (std::exception& e) {
@@ -69,11 +69,12 @@ SegmentReader::LoadVectors(off_t offset, size_t num_bytes, std::vector<uint8_t>&
 }
 
 Status
-SegmentReader::LoadUids(std::vector<doc_id_t>& uids) {
+SegmentReader::LoadUids(UidsPtr& uids_ptr) {
     codec::DefaultCodec default_codec;
     try {
         fs_ptr_->operation_ptr_->CreateDirectory();
-        default_codec.GetVectorsFormat()->read_uids(fs_ptr_, uids);
+        uids_ptr = std::make_shared<std::vector<doc_id_t>>();
+        default_codec.GetVectorsFormat()->read_uids(fs_ptr_, *uids_ptr);
     } catch (std::exception& e) {
         std::string err_msg = "Failed to load uids: " + std::string(e.what());
         LOG_ENGINE_ERROR_ << err_msg;
@@ -106,8 +107,18 @@ Status
 SegmentReader::LoadBloomFilter(segment::IdBloomFilterPtr& id_bloom_filter_ptr) {
     codec::DefaultCodec default_codec;
     try {
-        fs_ptr_->operation_ptr_->CreateDirectory();
-        default_codec.GetIdBloomFilterFormat()->read(fs_ptr_, id_bloom_filter_ptr);
+        // load id_bloom_filter from cache
+        std::string cache_key = fs_ptr_->operation_ptr_->GetDirectory() + cache::BloomFilter_Suffix;
+        id_bloom_filter_ptr =
+            std::static_pointer_cast<segment::IdBloomFilter>(cache::CpuCacheMgr::GetInstance()->GetItem(cache_key));
+
+        if (id_bloom_filter_ptr == nullptr) {
+            fs_ptr_->operation_ptr_->CreateDirectory();
+            default_codec.GetIdBloomFilterFormat()->read(fs_ptr_, id_bloom_filter_ptr);
+
+            // add id_bloom_filter into cache
+            cache::CpuCacheMgr::GetInstance()->InsertItem(cache_key, id_bloom_filter_ptr);
+        }
     } catch (std::exception& e) {
         std::string err_msg = "Failed to load bloom filter: " + std::string(e.what());
         LOG_ENGINE_ERROR_ << err_msg;

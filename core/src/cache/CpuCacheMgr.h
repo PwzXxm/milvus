@@ -21,6 +21,9 @@
 namespace milvus {
 namespace cache {
 
+// Define cache key suffix
+extern const char* BloomFilter_Suffix;
+
 class CpuCacheMgr : public CacheMgr<DataObjPtr>, public server::CacheConfigHandler {
  private:
     CpuCacheMgr();
@@ -29,9 +32,6 @@ class CpuCacheMgr : public CacheMgr<DataObjPtr>, public server::CacheConfigHandl
     // TODO(myh): use smart pointer instead
     static CpuCacheMgr*
     GetInstance();
-
-    DataObjPtr
-    GetIndex(const std::string& key);
 
  protected:
     void

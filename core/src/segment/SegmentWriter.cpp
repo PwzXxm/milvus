@@ -23,6 +23,7 @@
 
 #include "SegmentReader.h"
 #include "Vectors.h"
+#include "cache/CpuCacheMgr.h"
 #include "codecs/default/DefaultCodec.h"
 #include "db/Utils.h"
 #include "utils/Log.h"
@@ -57,31 +58,6 @@ SegmentWriter::AddVectors(const std::string& name, const uint8_t* data, uint64_t
 }
 
 Status
-SegmentWriter::AddAttrs(const std::string& name, const std::unordered_map<std::string, uint64_t>& attr_nbytes,
-                        const std::unordered_map<std::string, std::vector<uint8_t>>& attr_data,
-                        const std::vector<doc_id_t>& uids) {
-    auto attr_data_it = attr_data.begin();
-    auto attrs = segment_ptr_->attrs_ptr_->attrs;
-    for (; attr_data_it != attr_data.end(); ++attr_data_it) {
-        AttrPtr attr = std::make_shared<Attr>(attr_data_it->second, attr_nbytes.at(attr_data_it->first), uids,
-                                              attr_data_it->first);
-        segment_ptr_->attrs_ptr_->attrs.insert(std::make_pair(attr_data_it->first, attr));
-
-        //        if (attrs.find(attr_data_it->first) != attrs.end()) {
-        //            segment_ptr_->attrs_ptr_->attrs.at(attr_data_it->first)
-        //                ->AddAttr(attr_data_it->second, attr_nbytes.at(attr_data_it->first));
-        //            segment_ptr_->attrs_ptr_->attrs.at(attr_data_it->first)->AddUids(uids);
-        //        } else {
-        //            AttrPtr attr = std::make_shared<Attr>(attr_data_it->second, attr_nbytes.at(attr_data_it->first),
-        //            uids,
-        //                                                  attr_data_it->first);
-        //            segment_ptr_->attrs_ptr_->attrs.insert(std::make_pair(attr_data_it->first, attr));
-        //        }
-    }
-    return Status::OK();
-}
-
-Status
 SegmentWriter::SetVectorIndex(const milvus::knowhere::VecIndexPtr& index) {
     segment_ptr_->vector_index_ptr_->SetVectorIndex(index);
     return Status::OK();
@@ -105,11 +81,6 @@ SegmentWriter::Serialize() {
         return status;
     }
 
-    status = WriteAttrs();
-    if (!status.ok()) {
-        return status;
-    }
-
     recorder.RecordSection("Writing vectors and uids done");
 
     // Write an empty deleted doc
@@ -126,22 +97,6 @@ SegmentWriter::WriteVectors() {
     try {
         fs_ptr_->operation_ptr_->CreateDirectory();
         default_codec.GetVectorsFormat()->write(fs_ptr_, segment_ptr_->vectors_ptr_);
-    } catch (std::exception& e) {
-        std::string err_msg = "Failed to write vectors: " + std::string(e.what());
-        LOG_ENGINE_ERROR_ << err_msg;
-
-        engine::utils::SendExitSignal();
-        return Status(SERVER_WRITE_ERROR, err_msg);
-    }
-    return Status::OK();
-}
-
-Status
-SegmentWriter::WriteAttrs() {
-    codec::DefaultCodec default_codec;
-    try {
-        fs_ptr_->operation_ptr_->CreateDirectory();
-        default_codec.GetAttrsFormat()->write(fs_ptr_, segment_ptr_->attrs_ptr_);
     } catch (std::exception& e) {
         std::string err_msg = "Failed to write vectors: " + std::string(e.what());
         LOG_ENGINE_ERROR_ << err_msg;
@@ -180,20 +135,22 @@ SegmentWriter::WriteBloomFilter() {
 
         TimeRecorder recorder("SegmentWriter::WriteBloomFilter");
 
-        default_codec.GetIdBloomFilterFormat()->create(fs_ptr_, segment_ptr_->id_bloom_filter_ptr_);
+        auto& uids = segment_ptr_->vectors_ptr_->GetUids();
+        default_codec.GetIdBloomFilterFormat()->create(uids.size(), segment_ptr_->id_bloom_filter_ptr_);
 
         recorder.RecordSection("Initializing bloom filter");
 
-        auto& uids = segment_ptr_->vectors_ptr_->GetUids();
-        for (auto& uid : uids) {
-            segment_ptr_->id_bloom_filter_ptr_->Add(uid);
-        }
+        segment_ptr_->id_bloom_filter_ptr_->Add(uids);
 
         recorder.RecordSection("Adding " + std::to_string(uids.size()) + " ids to bloom filter");
 
         default_codec.GetIdBloomFilterFormat()->write(fs_ptr_, segment_ptr_->id_bloom_filter_ptr_);
 
         recorder.RecordSection("Writing bloom filter");
+
+        // add id_bloom_filter into cache
+        std::string cache_key = fs_ptr_->operation_ptr_->GetDirectory() + cache::BloomFilter_Suffix;
+        cache::CpuCacheMgr::GetInstance()->InsertItem(cache_key, segment_ptr_->id_bloom_filter_ptr_);
     } catch (std::exception& e) {
         std::string err_msg = "Failed to write vectors: " + std::string(e.what());
         LOG_ENGINE_ERROR_ << err_msg;
@@ -305,22 +262,6 @@ SegmentWriter::Merge(const std::string& dir_to_merge, const std::string& name) {
 
     auto rows = segment_to_merge->vectors_ptr_->GetCount();
     recorder.RecordSection("Adding " + std::to_string(rows) + " vectors and uids");
-
-    std::unordered_map<std::string, uint64_t> attr_nbytes;
-    std::unordered_map<std::string, std::vector<uint8_t>> attr_data;
-    auto attr_it = segment_to_merge->attrs_ptr_->attrs.begin();
-    for (; attr_it != segment_to_merge->attrs_ptr_->attrs.end(); attr_it++) {
-        attr_nbytes.insert(std::make_pair(attr_it->first, attr_it->second->GetNbytes()));
-        attr_data.insert(std::make_pair(attr_it->first, attr_it->second->GetData()));
-
-        if (segment_to_merge->deleted_docs_ptr_ != nullptr) {
-            auto offsets_to_delete = segment_to_merge->deleted_docs_ptr_->GetDeletedDocs();
-
-            // Erase from field data
-            attr_it->second->Erase(offsets_to_delete);
-        }
-    }
-    AddAttrs(name, attr_nbytes, attr_data, segment_to_merge->vectors_ptr_->GetUids());
 
     LOG_ENGINE_DEBUG_ << "Merging completed from " << dir_to_merge << " to " << fs_ptr_->operation_ptr_->GetDirectory();
 

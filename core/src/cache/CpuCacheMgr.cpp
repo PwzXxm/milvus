@@ -21,6 +21,8 @@
 namespace milvus {
 namespace cache {
 
+const char* BloomFilter_Suffix = ".bloomfilter";
+
 CpuCacheMgr::CpuCacheMgr() {
     // All config values have been checked in Config::ValidateConfig()
     server::Config& config = server::Config::GetInstance();
@@ -44,12 +46,6 @@ CpuCacheMgr*
 CpuCacheMgr::GetInstance() {
     static CpuCacheMgr s_mgr;
     return &s_mgr;
-}
-
-DataObjPtr
-CpuCacheMgr::GetIndex(const std::string& key) {
-    DataObjPtr obj = GetItem(key);
-    return obj;
 }
 
 void

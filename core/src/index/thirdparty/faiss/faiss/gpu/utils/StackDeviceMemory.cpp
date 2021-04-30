@@ -10,6 +10,7 @@
 #include <faiss/gpu/utils/DeviceUtils.h>
 #include <faiss/gpu/utils/StaticUtils.h>
 #include <faiss/impl/FaissAssert.h>
+#include <faiss/utils/utils.h>
 #include <algorithm>
 #include <sstream>
 
@@ -79,6 +80,10 @@ StackDeviceMemory::Stack::getSizeAvailable() const {
 char*
 StackDeviceMemory::Stack::getAlloc(size_t size,
                                    cudaStream_t stream) {
+  if (size  == 0) {
+      return nullptr;
+  }
+
   // The user must check to see that the allocation fit within us
   auto sizeRemaining = getSizeAvailable();
 
@@ -132,6 +137,10 @@ void
 StackDeviceMemory::Stack::returnAlloc(char* p,
                                       size_t size,
                                       cudaStream_t stream) {
+  if (size  == 0) {
+      return;
+  }
+
   // This allocation should be within ourselves
   FAISS_ASSERT(p >= start_ && p < end_);
 
