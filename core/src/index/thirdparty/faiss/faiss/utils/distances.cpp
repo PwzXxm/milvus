@@ -178,20 +178,21 @@ void exhaustive_parallel_on_ny (
         }
 
 #pragma omp parallel for schedule(static)
-            for (size_t j = 0; j < ny; j++) {
+        for (size_t j = 0; j < ny; j++) {
             int t = omp_get_thread_num();
-                if (!bitset || !bitset->test(j)) {
-                    const float* y_j = y + j * d;
-                    const float* x_i = x + x_from * d;
-                    for (size_t i = 0; i < size; i++) {
-                        float ip = dis_compute_func(x_i, y_j, d);
+            if (!bitset || !bitset->test(j)) {
+                const float* y_j = y + j * d;
+                const float* x_i = x + x_from * d;
+                for (size_t i = 0; i < size; i++) {
+                    float ip = dis_compute_func(x_i, y_j, d);
                     ress[t].add_single_result(i, ip, j);
-                        x_i += d;
-                    }
+                    x_i += d;
                 }
             }
+        }
 
         // merge heap
+        // for ReservoirResultHander maybe to_results first and then merge?
         for (size_t t = 1; t < thread_max_num; t++) {
             for (size_t i = 0; i < size; ++i) {
                 ress[0].merge(i, ress[t]);

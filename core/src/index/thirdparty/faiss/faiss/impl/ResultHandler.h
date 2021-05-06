@@ -400,9 +400,10 @@ struct ReservoirResultHandler {
     }
 
     void merge(size_t i, ReservoirResultHandler &rh) {
-        const T* dis = rh.reservoir_dis.data() + (i - rh.i0) * rh.capacity;
-        const TI* ids = rh.reservoir_ids.data() + (i - rh.i0) * rh.capacity;
-        for (int j = 0; j < rh.capacity; ++j) {
+        const size_t ii = i - rh.i0;
+        const T* dis = rh.reservoir_dis.data() + ii * rh.capacity;
+        const TI* ids = rh.reservoir_ids.data() + ii * rh.capacity;
+        for (int j = 0; j < rh.reservoirs[ii].i; j++) {
             add_single_result(i, dis[j], ids[j]);
         }
     }
