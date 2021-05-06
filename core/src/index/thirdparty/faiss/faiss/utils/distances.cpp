@@ -807,6 +807,7 @@ void elkan_L2_sse (
                 if (disij >= val_i) {
                     continue;
                 }
+                disij += fvec_L2sqr(x_i + d / 2, y_j + d / 2, d - d / 2);
                 if (disij < val_i) {
                     ids_i = j;
                     val_i = disij;
