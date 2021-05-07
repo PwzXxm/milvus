@@ -216,6 +216,7 @@ if(WIN32)
 endif()
 
 target_compile_definitions(faiss PRIVATE FINTEGER=int)
+target_compile_options(faiss PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-msse4 -mpopcnt>)
 
 find_package(OpenMP REQUIRED)
 target_link_libraries(faiss PRIVATE OpenMP::OpenMP_CXX)

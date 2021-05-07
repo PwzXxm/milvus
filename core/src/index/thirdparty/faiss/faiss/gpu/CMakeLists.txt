@@ -172,6 +172,6 @@ endforeach()
 find_package(CUDAToolkit REQUIRED)
 
 find_package(OpenMP REQUIRED)
-target_link_libraries(faiss PRIVATE OpenMP::OpenMP_CXX)
+target_link_libraries(faiss PUBLIC OpenMP::OpenMP_CXX)
 
-target_link_libraries(faiss PRIVATE CUDA::cudart CUDA::cublas)
+target_link_libraries(faiss PUBLIC CUDA::cudart CUDA::cublas)
