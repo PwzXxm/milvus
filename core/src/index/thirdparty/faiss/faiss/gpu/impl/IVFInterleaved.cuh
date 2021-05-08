@@ -39,7 +39,7 @@ template <typename Codec,
 __global__ void
 ivfInterleavedScan(Tensor<float, 2, true> queries,
                    Tensor<float, 3, true> residualBase,
-                   Tensor<uint8_t, 1, true>& bitset,
+                   Tensor<uint8_t, 1, true> bitset,
                    IndicesOptions opt,
                    Tensor<int, 2, true> listIds,
                    void** listIndices,
@@ -186,7 +186,7 @@ ivfInterleavedScan(Tensor<float, 2, true> queries,
     }
 
     if (valid) {
-      Index::idx_t index = getUserIndex(listId, block * wordsPerVectorBlock, listIndices, opt);
+      Index::idx_t index = getUserIndex(listId, vec, listIndices, opt);
       if (bitset.getSize(0) == 0 || (!(bitset[index >> 3] & (0x1 << (index & 0x7))))) {
         heap.addThreadQ(dist.reduce(), vec);
       }
