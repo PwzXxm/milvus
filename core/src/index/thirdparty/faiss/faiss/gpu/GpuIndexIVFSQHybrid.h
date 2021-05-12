@@ -59,8 +59,7 @@ class GpuIndexIVFSQHybrid : public GpuIndexIVF {
   /// all data in ourselves
   void copyFrom(const faiss::IndexIVFSQHybrid* index);
 
-  /// Initialize ourselves from the given CPU index; will overwrite
-  /// all data in ourselves
+  /// Initialize ourselves from the given CPU index, quantizer and mode
   void copyFrom(faiss::IndexIVFSQHybrid* index, gpu::GpuIndexFlat *&quantizer, int64_t mode);
 
   /// Copy ourselves to the given CPU index; will overwrite all data
