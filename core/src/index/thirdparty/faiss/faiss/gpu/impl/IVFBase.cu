@@ -401,12 +401,6 @@ IVFBase::copyCodeVectorsFromCpu(const float* vecs,
 
     auto lengthInBytes = getCpuVectorsEncodingSize_(numVecs);
 
-    // TODO: Investigate whether we need to translate the interleaved layout
-    // For now, the interleaved layout only applies to the IVFPQ.
-    // This function is called when the inverted list is ReadOnlyArrayInvertedLists
-    // So there should be no problem
-
-
     // We only have int32 length representations on the GPU per each
     // list; the length is in sizeof(char)
     FAISS_ASSERT(deviceData_->data.size() + lengthInBytes <= std::numeric_limits<int64_t>::max());

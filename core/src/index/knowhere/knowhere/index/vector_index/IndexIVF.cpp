@@ -302,7 +302,7 @@ IVF::QueryImpl(int64_t n, const float* data, int64_t k, float* distances, int64_
     if (params->nprobe > 1 && n <= 4) {
         ivf_index->parallel_mode = 1;
     } else {
-        ivf_index->parallel_mode = 0;
+        ivf_index->parallel_mode = 3;
     }
     ivf_index->search(n, (float*)data, k, distances, labels, GetBlacklist());
     stdclock::time_point after = stdclock::now();
