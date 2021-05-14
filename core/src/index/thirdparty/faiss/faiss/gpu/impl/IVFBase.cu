@@ -436,6 +436,9 @@ IVFBase::copyCodeVectorsFromCpu(const float* vecs,
     if (stream != 0) {
         streamWait({stream}, {0});
     }
+
+    // do not use the interleaved layout when loading ReadOnlyArrayInvertedList
+    interleavedLayout_ = false;
 }
 
 void
