@@ -949,7 +949,7 @@ macro(build_fiu)
         PROPERTIES IMPORTED_LOCATION "${FIU_SHARED_LIB}"
         INTERFACE_INCLUDE_DIRECTORIES "${FIU_INCLUDE_DIR}")
 
-    add_dependencies(fiu fiu_ep)
+    add_dependencies(fiu fiu_ep faiss)
 endmacro()
 
 resolve_dependency(fiu)
