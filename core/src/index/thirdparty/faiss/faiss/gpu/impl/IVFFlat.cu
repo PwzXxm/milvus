@@ -374,22 +374,40 @@ IVFFlat::query(Tensor<float, 2, true>& queries,
         quantizer_->reconstruct(coarseIndices, residualBase);
     }
 
-    runIVFFlatScan(queries,
-                   coarseIndices,
-                   bitset,
-                   deviceListDataPointers_,
-                   deviceListIndexPointers_,
-                   indicesOptions_,
-                   deviceListLengths_,
-                   maxListLength_,
-                   k,
-                   metric_,
-                   useResidual_,
-                   residualBase,
-                   scalarQ_.get(),
-                   outDistances,
-                   outIndices,
-                   resources_);
+    if (interleavedLayout_) {
+      runIVFInterleavedScan(queries,
+                            coarseIndices,
+                            bitset,
+                            deviceListDataPointers_,
+                            deviceListIndexPointers_,
+                            indicesOptions_,
+                            deviceListLengths_,
+                            k,
+                            metric_,
+                            useResidual_,
+                            residualBase,
+                            scalarQ_.get(),
+                            outDistances,
+                            outIndices,
+                            resources_);
+    } else {
+      runIVFFlatScan(queries,
+                      coarseIndices,
+                      bitset,
+                      deviceListDataPointers_,
+                      deviceListIndexPointers_,
+                      indicesOptions_,
+                      deviceListLengths_,
+                      maxListLength_,
+                      k,
+                      metric_,
+                      useResidual_,
+                      residualBase,
+                      scalarQ_.get(),
+                      outDistances,
+                      outIndices,
+                      resources_);
+    }
 
     fromDevice<float,2>(outDistances, tmpDistances, stream);
     fromDevice<Index::idx_t,2>(outIndices, tmpIndices, stream);
