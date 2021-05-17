@@ -272,7 +272,7 @@ if (MILVUS_WITH_PROMETHEUS)
 else ()
     add_library(metrics STATIC ${metrics_files})
 endif ()
-add_dependencies(metrics fiu)
+add_dependencies(metrics fiu faiss_ep)
 
 set(metrics_lib
         yaml-cpp

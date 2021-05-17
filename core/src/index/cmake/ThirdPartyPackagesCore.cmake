@@ -546,42 +546,22 @@ macro(build_faiss)
 
     message(STATUS "Building FAISS with configure args -${FAISS_CONFIGURE_ARGS}")
 
-    if (DEFINED ENV{FAISS_SOURCE_URL})
-        set(FAISS_SOURCE_URL "$ENV{FAISS_SOURCE_URL}")
-        externalproject_add(faiss_ep
-                URL
-                ${FAISS_SOURCE_URL}
-                PREFIX
-                ${FAISS_PREFIX}
-                SOURCE_DIR
-                ${FAISS_SOURCE_DIR}
-                CMAKE_ARGS
-                ${FAISS_CONFIGURE_ARGS}
-                ${EP_LOG_OPTIONS}
-                BUILD_COMMAND
-                ${MAKE} ${MAKE_BUILD_ARGS} all
-                INSTALL_COMMAND
-                ${MAKE} install
-                BUILD_BYPRODUCTS
-                ${FAISS_STATIC_LIB})
-    else ()
-        externalproject_add(faiss_ep
-                DOWNLOAD_COMMAND
-                ""
-                PREFIX
-                ${FAISS_PREFIX}
-                SOURCE_DIR
-                ${FAISS_SOURCE_DIR}
-                CMAKE_ARGS
-                ${FAISS_CONFIGURE_ARGS}
-                ${EP_LOG_OPTIONS}
-                BUILD_COMMAND
-                ${MAKE} ${MAKE_BUILD_ARGS} all
-                INSTALL_COMMAND
-                ${MAKE} install
-                BUILD_BYPRODUCTS
-                ${FAISS_STATIC_LIB})
-    endif ()
+    externalproject_add(faiss_ep
+            DOWNLOAD_COMMAND
+            ""
+            PREFIX
+            ${FAISS_PREFIX}
+            SOURCE_DIR
+            ${FAISS_SOURCE_DIR}
+            CMAKE_ARGS
+            ${FAISS_CONFIGURE_ARGS}
+            ${EP_LOG_OPTIONS}
+            BUILD_COMMAND
+            ${MAKE} ${MAKE_BUILD_ARGS} all
+            INSTALL_COMMAND
+            ${MAKE} install
+            BUILD_BYPRODUCTS
+            ${FAISS_STATIC_LIB})
 
     if(NOT OpenBLAS_FOUND)
         message("add faiss dependencies: openblas_ep")
