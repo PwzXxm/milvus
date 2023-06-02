@@ -57,7 +57,7 @@ CUDA_ARCH="DEFAULT"
 CUSTOM_THIRDPARTY_PATH=""
 EMBEDDED_MILVUS="OFF"
 BUILD_DISK_ANN="OFF"
-USE_ASAN="OFF"
+USE_ASAN="ON"
 
 while getopts "p:d:t:s:f:n:ulrcghzmeba" arg; do
   case $arg in
@@ -108,7 +108,7 @@ while getopts "p:d:t:s:f:n:ulrcghzmeba" arg; do
     ;;
   a)
     USE_ASAN="ON"
-    BUILD_TYPE=Debug
+    # BUILD_TYPE=Debug
     ;;
   h) # help
     echo "
