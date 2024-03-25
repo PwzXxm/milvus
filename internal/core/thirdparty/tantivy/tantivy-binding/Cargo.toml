@@ -10,6 +10,7 @@ tantivy = "0.21.0"
 futures = "0.3.21"
 libc = "0.2"
 scopeguard = "1.2"
+zstd-sys = "=2.0.9"
 
 [build-dependencies]
 cbindgen = "0.26.0"
