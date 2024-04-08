@@ -114,8 +114,13 @@ func initSearchRequest(ctx context.Context, t *searchTask) error {
 				}
 
 				if t.enableMaterializedView {
-					if planPtr := plan.GetVectorAnns(); planPtr != nil {
-						planPtr.QueryInfo.MaterializedViewInvolved = true
+					partitionKeyFieldSchema, pkErr := typeutil.GetPartitionKeyFieldSchema(t.schema.CollectionSchema)
+					if pkErr != nil {
+						log.Warn("failed to get partition key field schema", zap.Error(err))
+						return err
+					}
+					if typeutil.IsPartitionKeyFieldSupportMaterializedView(partitionKeyFieldSchema) {
+						queryInfo.MaterializedViewInvolved = true
 					}
 				}
 			}

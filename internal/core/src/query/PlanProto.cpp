@@ -238,9 +238,9 @@ ProtoParser::PlanNodeFromProto(const planpb::PlanNode& plan_node_proto) {
         plan_node->filter_plannode_.has_value()) {
         const auto expr_info = plan_node->filter_plannode_.value()->GatherInfo();
         knowhere::MaterializedViewSearchInfo materialized_view_search_info;
-        for (const auto& [field_id, vals] : expr_info.field_id_to_values) {
+        for (const auto& [expr_field_id, vals] : expr_info.field_id_to_values) {
             materialized_view_search_info
-                .field_id_to_touched_categories_cnt[field_id] = vals.size();
+                .field_id_to_touched_categories_cnt[expr_field_id] = vals.size();
         }
         materialized_view_search_info.is_pure_and = expr_info.is_pure_and;
         materialized_view_search_info.has_not = expr_info.has_not;
