@@ -11,8 +11,8 @@
 # or implied. See the License for the specific language governing permissions and limitations under the License.
 #-------------------------------------------------------------------------------
 
-# Update KNOWHERE_VERSION for the first occurrence
-set( KNOWHERE_VERSION v2.3.0 )
+# Update KNOWHERE_VERSION when there is an API break change and/or releasing a new version
+set( KNOWHERE_VERSION 97e6456 )
 set( GIT_REPOSITORY  "https://github.com/zilliztech/knowhere.git")
 message(STATUS "Knowhere repo: ${GIT_REPOSITORY}")
 message(STATUS "Knowhere version: ${KNOWHERE_VERSION}")
