@@ -12,8 +12,8 @@
 #-------------------------------------------------------------------------------
 
 # Update KNOWHERE_VERSION for the first occurrence
-set( KNOWHERE_VERSION d2047097 )
-set( GIT_REPOSITORY  "https://github.com/zilliztech/knowhere.git")
+set( KNOWHERE_VERSION log_filter  )
+set( GIT_REPOSITORY  "https://github.com/PwzXxm/knowhere.git")
 message(STATUS "Knowhere repo: ${GIT_REPOSITORY}")
 message(STATUS "Knowhere version: ${KNOWHERE_VERSION}")
 
