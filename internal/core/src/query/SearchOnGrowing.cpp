@@ -14,6 +14,7 @@
 #include "common/Tracer.h"
 #include "common/Types.h"
 #include "SearchOnGrowing.h"
+#include "query/CachedSearchIterator.h"
 #include "query/SearchBruteForce.h"
 #include "query/SearchOnIndex.h"
 
@@ -111,54 +112,65 @@ SearchOnGrowing(const segcore::SegmentGrowingImpl& segment,
         int32_t current_chunk_id = 0;
         // step 3: brute force search where small indexing is unavailable
         auto vec_ptr = record.get_data_base(vecfield_id);
-        auto vec_size_per_chunk = vec_ptr->get_size_per_chunk();
-        auto max_chunk = upper_div(active_count, vec_size_per_chunk);
 
-        for (int chunk_id = current_chunk_id; chunk_id < max_chunk;
-             ++chunk_id) {
-            auto chunk_data = vec_ptr->get_chunk_data(chunk_id);
-
-            auto element_begin = chunk_id * vec_size_per_chunk;
-            auto element_end =
-                std::min(active_count, (chunk_id + 1) * vec_size_per_chunk);
-            auto size_per_chunk = element_end - element_begin;
-
-            auto sub_view = bitset.subview(element_begin, size_per_chunk);
-            if (info.group_by_field_id_.has_value()) {
-                auto sub_qr = BruteForceSearchIterators(search_dataset,
-                                                        chunk_data,
-                                                        size_per_chunk,
-                                                        info,
-                                                        sub_view,
-                                                        data_type);
-                final_qr.merge(sub_qr);
-            } else {
-                auto sub_qr = BruteForceSearch(search_dataset,
-                                               chunk_data,
-                                               size_per_chunk,
-                                               info,
-                                               sub_view,
-                                               data_type);
-
-                // convert chunk uid to segment uid
-                for (auto& x : sub_qr.mutable_seg_offsets()) {
-                    if (x != -1) {
-                        x += chunk_id * vec_size_per_chunk;
-                    }
-                }
-                final_qr.merge(sub_qr);
-            }
-        }
-        if (info.group_by_field_id_.has_value()) {
-            search_result.AssembleChunkVectorIterators(
-                num_queries,
-                max_chunk,
-                vec_size_per_chunk,
-                final_qr.chunk_iterators());
+        if (info.iterator_v2_info_.has_value()) {
+            CachedSearchIterator cached_iter(search_dataset, vec_ptr, active_count, info, bitset, data_type);
+            cached_iter.NextBatch(info, search_result);
+            return;
         } else {
-            search_result.distances_ = std::move(final_qr.mutable_distances());
-            search_result.seg_offsets_ =
-                std::move(final_qr.mutable_seg_offsets());
+            auto vec_size_per_chunk = vec_ptr->get_size_per_chunk();
+            auto max_chunk = upper_div(active_count, vec_size_per_chunk);
+
+            SubSearchResult final_qr(
+                num_queries, topk, metric_type, round_decimal);
+            for (int chunk_id = current_chunk_id; chunk_id < max_chunk;
+                 ++chunk_id) {
+                auto chunk_data = vec_ptr->get_chunk_data(chunk_id);
+
+                auto element_begin = chunk_id * vec_size_per_chunk;
+                auto element_end =
+                    std::min(active_count, (chunk_id + 1) * vec_size_per_chunk);
+                auto size_per_chunk = element_end - element_begin;
+
+                auto sub_view = bitset.subview(element_begin, size_per_chunk);
+                if (info.group_by_field_id_.has_value()) {
+                    auto sub_qr = PackBruteForceSearchIteratorsIntoSubResult(
+                        search_dataset,
+                        chunk_data,
+                        size_per_chunk,
+                        info,
+                        sub_view,
+                        data_type);
+                    final_qr.merge(sub_qr);
+                } else {
+                    auto sub_qr = BruteForceSearch(search_dataset,
+                                                   chunk_data,
+                                                   size_per_chunk,
+                                                   info,
+                                                   sub_view,
+                                                   data_type);
+
+                    // convert chunk uid to segment uid
+                    for (auto& x : sub_qr.mutable_seg_offsets()) {
+                        if (x != -1) {
+                            x += chunk_id * vec_size_per_chunk;
+                        }
+                    }
+                    final_qr.merge(sub_qr);
+                }
+            }
+            if (info.group_by_field_id_.has_value()) {
+                search_result.AssembleChunkVectorIterators(
+                    num_queries,
+                    max_chunk,
+                    vec_size_per_chunk,
+                    final_qr.chunk_iterators());
+            } else {
+                search_result.distances_ =
+                    std::move(final_qr.mutable_distances());
+                search_result.seg_offsets_ =
+                    std::move(final_qr.mutable_seg_offsets());
+            }
         }
         search_result.unity_topK_ = topk;
         search_result.total_nq_ = num_queries;

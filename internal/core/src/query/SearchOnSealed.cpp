@@ -18,6 +18,7 @@
 #include "common/QueryInfo.h"
 #include "common/Types.h"
 #include "mmap/Column.h"
+#include "query/CachedSearchIterator.h"
 #include "query/SearchBruteForce.h"
 #include "query/SearchOnSealed.h"
 #include "query/helper.h"
@@ -55,13 +56,19 @@ SearchOnSealedIndex(const Schema& schema,
     dataset->SetIsSparse(is_sparse);
     auto vec_index =
         dynamic_cast<index::VectorIndex*>(field_indexing->indexing_.get());
+
+    if (search_info.iterator_v2_info_.has_value()) {
+        CachedSearchIterator cached_iter(*vec_index, dataset, search_info, bitset);
+        cached_iter.NextBatch(search_info, search_result);
+        return;
+    }
+
     if (!milvus::exec::PrepareVectorIteratorsFromIndex(search_info,
                                                        num_queries,
                                                        dataset,
                                                        search_result,
                                                        bitset,
                                                        *vec_index)) {
-        auto index_type = vec_index->GetIndexType();
         vec_index->Query(dataset, search_info, bitset, search_result);
         float* distances = search_result.distances_.data();
         auto total_num = num_queries * topK;
@@ -132,8 +139,9 @@ SearchOnSealed(const Schema& schema,
         }
         BitsetView bitset_view(bitset_ptr, chunk_size);
 
+        // TODO: add iterator v2 support
         if (search_info.group_by_field_id_.has_value()) {
-            auto sub_qr = BruteForceSearchIterators(dataset,
+            auto sub_qr = PackBruteForceSearchIteratorsIntoSubResult(dataset,
                                                     vec_data,
                                                     chunk_size,
                                                     search_info,
@@ -198,10 +206,15 @@ SearchOnSealed(const Schema& schema,
     auto data_type = field.get_data_type();
     CheckBruteForceSearchParam(field, search_info);
     if (search_info.group_by_field_id_.has_value()) {
-        auto sub_qr = BruteForceSearchIterators(
+        auto sub_qr = PackBruteForceSearchIteratorsIntoSubResult(
             dataset, vec_data, row_count, search_info, bitset, data_type);
         result.AssembleChunkVectorIterators(
             num_queries, 1, -1, sub_qr.chunk_iterators());
+    } else if (search_info.iterator_v2_info_.has_value()) {
+        CachedSearchIterator cached_iter(
+            dataset, vec_data, row_count, search_info, bitset, data_type);
+        cached_iter.NextBatch(search_info, result);
+        return;
     } else {
         auto sub_qr = BruteForceSearch(
             dataset, vec_data, row_count, search_info, bitset, data_type);

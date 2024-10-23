@@ -628,6 +628,17 @@ func (t *searchTask) reduceResults(ctx context.Context, toReduceResults []*inter
 	return result, nil
 }
 
+func getLastBound(result *milvuspb.SearchResults) float32 {
+	// invalid IDs are discarded in QN
+	// the length of the scores is always equal to the returned TopK
+	// only support nq == 1
+	len := len(result.Results.Scores)
+	if len > 0 && result.GetResults().GetNumQueries() == 1 {
+		return result.Results.Scores[len-1]
+	}
+	return math.MaxFloat32
+}
+
 func (t *searchTask) PostExecute(ctx context.Context) error {
 	ctx, sp := otel.Tracer(typeutil.ProxyRole).Start(ctx, "Proxy-Search-PostExecute")
 	defer sp.End()
@@ -743,6 +754,14 @@ func (t *searchTask) PostExecute(ctx context.Context) error {
 	}
 	t.result.Results.OutputFields = t.userOutputFields
 	t.result.CollectionName = t.request.GetCollectionName()
+	if t.isIterator {
+		if len(t.queryInfos) == 1 {
+			t.result.Results.SearchIteratorV2Results = &schemapb.SearchIteratorV2Results{
+				Token:     t.queryInfos[0].GetSearchIteratorV2Info().GetToken(),
+				LastBound: getLastBound(t.result),
+			}
+		}
+	}
 	if t.isIterator && t.request.GetGuaranteeTimestamp() == 0 {
 		// first page for iteration, need to set up sessionTs for iterator
 		t.result.SessionTs = t.SearchRequest.GetGuaranteeTimestamp()
