@@ -70,15 +70,15 @@ ProtoParser::PlanNodeFromProto(const planpb::PlanNode& plan_node_proto) {
                 query_info_proto.group_strict_size();
         }
 
-        if (query_info_proto.has_iterator_v2_info()) {
-            auto& iterator_v2_info_proto = query_info_proto.iterator_v2_info();
+        if (query_info_proto.has_search_iterator_v2_info()) {
+            auto& search_iterator_v2_info_proto = query_info_proto.search_iterator_v2_info();
             search_info.iterator_v2_info_ = SearchIteratorV2Info{
-                .token = iterator_v2_info_proto.token(),
-                .batch_size = iterator_v2_info_proto.batch_size(),
+                .token = search_iterator_v2_info_proto.token(),
+                .batch_size = search_iterator_v2_info_proto.batch_size(),
             };
-            if (iterator_v2_info_proto.has_last_bound()) {
+            if (search_iterator_v2_info_proto.has_last_bound()) {
                 search_info.iterator_v2_info_->last_bound =
-                    iterator_v2_info_proto.last_bound();
+                    search_iterator_v2_info_proto.last_bound();
             }
         }
 

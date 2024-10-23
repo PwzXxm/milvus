@@ -50,8 +50,14 @@ public:
 private:
     using DisIdPair = std::pair<float, int64_t>;
 
-    void MergeIteratorResults(size_t iter_idx,
-                             size_t iter_size,
+    DisIdPair
+    ConvertIteratorResult(const std::pair<int64_t, float>& iter_rst,
+                          const size_t chunk_idx = 0);
+    std::optional<DisIdPair>
+    GetNextValidResult(size_t iterator_idx,
+                       const std::optional<double>& last_bound,
+                       const size_t chunk_id = 0);
+    void MergeChunksResults(size_t query_idx,
                              const std::optional<double>& last_bound,
                              std::vector<DisIdPair>& rst);
 
@@ -59,8 +65,7 @@ private:
     void ValidateSearchInfo(const SearchInfo& search_info);
     void RefillIteratorResultPool();
     std::vector<DisIdPair>
-    GetBatchedNextResults(size_t iter_idx,
-                          size_t iter_size,
+    GetBatchedNextResults(size_t query_idx,
                           const SearchInfo& search_info);
     void WriteSingleQuerySearchResult(SearchResult& search_result,
                                       const size_t idx,
@@ -72,7 +77,8 @@ private:
     int64_t batch_size_ = 0;
     std::vector<knowhere::IndexNode::IteratorPtr> iterators_;
     int8_t sign_ = 1;
-    size_t chunk_size_ = 1;
+    int64_t vec_size_per_chunk_ = 1;
+    size_t num_chunks_ = 1;
     size_t nq_ = 0;
 };
 

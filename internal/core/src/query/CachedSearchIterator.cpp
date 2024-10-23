@@ -58,26 +58,31 @@ CachedSearchIterator::CachedSearchIterator(
     const SearchInfo& search_info,
     const BitsetView& bitset,
     const milvus::DataType& data_type) {
-    const int64_t max_size_per_chunk = vec_data->get_size_per_chunk();
-    const int64_t max_chunk = upper_div(row_count, max_size_per_chunk);
+    nq_ = dataset.num_queries;
+    vec_size_per_chunk_ = vec_data->get_size_per_chunk();
+    num_chunks_ = upper_div(row_count, vec_size_per_chunk_);
 
-    iterators_.reserve(max_chunk);
-    for (int64_t chunk_id = 0; chunk_id < max_chunk; ++chunk_id) {
+    iterators_.reserve(nq_ * num_chunks_);
+    for (int64_t chunk_id = 0; chunk_id < num_chunks_; ++chunk_id) {
         const auto chunk_data = vec_data->get_chunk_data(chunk_id);
-        auto element_begin = chunk_id * max_size_per_chunk;
+        auto element_begin = chunk_id * vec_size_per_chunk_;
         auto element_end =
-            std::min(row_count, (chunk_id + 1) * max_size_per_chunk);
+            std::min(row_count, (chunk_id + 1) * vec_size_per_chunk_);
         auto cur_chunk_size = element_end - element_begin;
 
         // free bitset view here will not cause memory leak, because it is used
         // only during construction of BF iterator
         BitsetView sub_view = bitset.subview(element_begin, cur_chunk_size);
+
+        // generate `nq` iterators for a chunk
         auto expected_iterators = GetBruteForceSearchIterators(dataset,
                                                                chunk_data,
                                                                cur_chunk_size,
                                                                search_info,
                                                                sub_view,
                                                                data_type);
+        // iterators_ will be like this:
+        // | chunk 0 (nq iterators) | chunk 1 (nq iterators) | chunk 2 (nq iterators) | ... |
         if (expected_iterators.has_value()) {
             auto& chunk_iterators = expected_iterators.value();
             iterators_.insert(iterators_.end(),
@@ -88,8 +93,6 @@ CachedSearchIterator::CachedSearchIterator(
                       "Failed to create iterators from index");
         }
     }
-    nq_ = dataset.num_queries;
-    chunk_size_ = max_size_per_chunk;
     Init(search_info);
 }
 
@@ -98,6 +101,13 @@ CachedSearchIterator::NextBatch(const SearchInfo& search_info,
                                 SearchResult& search_result) {
     if (iterators_.empty()) {
         return;
+    }
+
+    if (iterators_.size() != nq_ * num_chunks_) {
+        PanicInfo(ErrorCode::UnexpectedError,
+                  "Iterator size mismatch, expect %d, but got %d",
+                  nq_ * num_chunks_,
+                  iterators_.size());
     }
 
     ValidateSearchInfo(search_info);
@@ -112,11 +122,10 @@ CachedSearchIterator::NextBatch(const SearchInfo& search_info,
 void
 CachedSearchIterator::IteratorsSearch(const SearchInfo& search_info,
                                       SearchResult& search_result) {
-    for (size_t idx = 0; idx < iterators_.size(); idx += chunk_size_) {
-        const size_t iter_size = std::min(chunk_size_, iterators_.size() - idx);
-        auto rst = GetBatchedNextResults(idx, iter_size, search_info);
+    for (size_t query_idx = 0; query_idx < nq_; ++query_idx) {
+        auto rst = GetBatchedNextResults(query_idx, search_info);
         WriteSingleQuerySearchResult(
-            search_result, idx, rst, search_info.round_decimal_);
+            search_result, query_idx, rst, search_info.round_decimal_);
     }
 }
 
@@ -141,68 +150,85 @@ CachedSearchIterator::RefillIteratorResultPool() {
     // Implementation...
 }
 
-void
-CachedSearchIterator::MergeIteratorResults(size_t iter_idx,
-                                            size_t iter_size,
-                                            const std::optional<double>& last_bound,
-                                            std::vector<DisIdPair>& rst) {
-    using IdxResultPair = std::pair<size_t, DisIdPair>;
+CachedSearchIterator::DisIdPair
+CachedSearchIterator::ConvertIteratorResult(
+    const std::pair<int64_t, float>& iter_rst, const size_t chunk_idx) {
+    DisIdPair rst;
+    rst.first = iter_rst.second * sign_;
+    rst.second = iter_rst.first + chunk_idx * vec_size_per_chunk_;
+    return rst;
+}
 
-    auto cmp = [](const IdxResultPair& lhs, const IdxResultPair& rhs) {
+std::optional<CachedSearchIterator::DisIdPair>
+CachedSearchIterator::GetNextValidResult(
+    const size_t iterator_idx,
+    const std::optional<double>& last_bound,
+    const size_t chunk_id) {
+    auto& iterator = iterators_[iterator_idx];
+    while (iterator->HasNext()) {
+        auto result = ConvertIteratorResult(iterator->Next(), chunk_id);
+        if (!last_bound.has_value() || result.first > last_bound.value()) {
+            return result;
+        }
+    }
+    return std::nullopt;
+}
+
+// TODO: Optimize this method
+void
+CachedSearchIterator::MergeChunksResults(
+    size_t query_idx,
+    const std::optional<double>& last_bound,
+    std::vector<DisIdPair>& rst) {
+
+
+    auto cmp = [](const auto& lhs, const auto& rhs) {
         return lhs.second.first > rhs.second.first;
     };
-    std::priority_queue<IdxResultPair,
-                        std::vector<IdxResultPair>,
+    std::priority_queue<std::pair<size_t, DisIdPair>,
+                        std::vector<std::pair<size_t, DisIdPair>>,
                         decltype(cmp)>
-        pq(cmp);
+        heap(cmp);
 
-    for (size_t i = 0; i < iter_size; ++i) {
-        const size_t idx = iter_idx + i;
-        auto& iterator = iterators_[idx];
-        if (iterator->HasNext()) {
-            auto result = iterator->Next();
-            result.first *= sign_;
-            pq.emplace(idx, result);
+    for (size_t chunk_id = 0; chunk_id < num_chunks_; ++chunk_id) {
+        const size_t iterator_idx = query_idx + chunk_id * nq_;
+        if (auto next_result = GetNextValidResult(iterator_idx, last_bound, chunk_id)) {
+            heap.emplace(iterator_idx, *next_result);
         }
     }
 
-    while (!pq.empty() && rst.size() < batch_size_) {
-        const auto& [idx, result] = pq.top();
-        pq.pop();
-        if (iterators_[idx]->HasNext()) {
-            pq.emplace(idx, iterators_[idx]->Next());
+    while (!heap.empty() && rst.size() < batch_size_) {
+        const auto [iterator_idx, cur_rst] = heap.top();
+        heap.pop();
+        rst.push_back(cur_rst);
+        if (auto next_result = GetNextValidResult(
+                iterator_idx, last_bound, iterator_idx / nq_)) {
+            heap.emplace(iterator_idx, *next_result);
         }
-        if (last_bound.has_value() && result.first <= last_bound.value()) {
-            continue;
-        }
-        rst.emplace_back(result);
     }
 }
 
 std::vector<CachedSearchIterator::DisIdPair>
-CachedSearchIterator::GetBatchedNextResults(
-    size_t iter_idx,
-    size_t iter_size,
-    const SearchInfo& search_info) {
-    const auto last_bound = search_info.iterator_v2_info_.value().last_bound;
+CachedSearchIterator::GetBatchedNextResults(size_t query_idx,
+                                            const SearchInfo& search_info) {
+    auto last_bound = search_info.iterator_v2_info_.value().last_bound;
+    if (last_bound.has_value()) {
+        last_bound = last_bound.value() * sign_;
+    }
 
     std::vector<DisIdPair> rst;
     rst.reserve(batch_size_);
 
-    if (iter_size == 1) {
-        auto& iterator = iterators_[iter_idx];
+    if (num_chunks_ == 1) {
+        auto& iterator = iterators_[query_idx];
         while (iterator->HasNext() && rst.size() < batch_size_) {
-            auto result = iterator->Next();
-            result.first *= sign_;
-            if (last_bound.has_value() && result.first <= last_bound.value()) {
-                continue;
+            auto result = ConvertIteratorResult(iterator->Next());
+            if (!last_bound.has_value() || result.first > last_bound.value()) {
+                rst.emplace_back(result);
             }
-            rst.emplace_back(result);
         }
-    } else if (iter_size > 1) {
-        MergeIteratorResults(iter_idx, iter_size, last_bound, rst);
     } else {
-        PanicInfo(ErrorCode::UnexpectedError, "Invalid iterator size");
+        MergeChunksResults(query_idx, last_bound, rst);
     }
     std::sort(rst.begin(), rst.end());
     if (sign_ == -1) {
@@ -238,9 +264,7 @@ CachedSearchIterator::WriteSingleQuerySearchResult(
     std::transform(rst.begin(),
                    rst.end(),
                    search_result.seg_offsets_.begin() + idx * batch_size_,
-                   [](const DisIdPair& x) {
-                       return x.second;
-                   });
+                   [](const DisIdPair& x) { return x.second; });
 }
 
 void
