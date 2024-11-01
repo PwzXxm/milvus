@@ -12,13 +12,16 @@
 #pragma once
 
 #include <cstddef>
+#include <memory>
 #include <vector>
+#include <queue>
 #include <optional>
 #include "common/QueryInfo.h"
 #include "common/QueryResult.h"
 #include "common/BitsetView.h"
 #include "knowhere/dataset.h"
 #include "index/VectorIndex.h"
+#include "mmap/ChunkedColumn.h"
 #include "query/SearchBruteForce.h"
 #include "segcore/InsertRecord.h"
 
@@ -26,6 +29,10 @@ namespace milvus::query {
 
 class CachedSearchIterator {
 public:
+    using BitsetViewWithMem = std::pair<BitsetView, std::vector<char>>;
+    using GetBitsetViewFunc = std::function<BitsetViewWithMem(
+        const BitsetView& bitset_view, int64_t offset, int64_t chunk_size)>;
+
     CachedSearchIterator(const milvus::index::VectorIndex& index,
                          const knowhere::DataSetPtr& dataset,
                          const SearchInfo& search_info,
@@ -45,10 +52,18 @@ public:
                          const BitsetView& bitset,
                          const milvus::DataType& data_type);
 
+    CachedSearchIterator(const std::shared_ptr<ChunkedColumnBase>& column,
+                         const dataset::SearchDataset& dataset,
+                         const SearchInfo& search_info,
+                         const BitsetView& bitset,
+                         const milvus::DataType& data_type,
+                         const GetBitsetViewFunc& get_bitset_view_with_mem);
+
     void NextBatch(const SearchInfo& search_info, SearchResult& search_result);
 
 private:
     using DisIdPair = std::pair<float, int64_t>;
+    using GetChunkDataFunc = std::function<std::pair<const void*, int64_t>(int64_t)>;
 
     DisIdPair
     ConvertIteratorResult(const std::pair<int64_t, float>& iter_rst,
@@ -61,9 +76,11 @@ private:
                              const std::optional<double>& last_bound,
                              std::vector<DisIdPair>& rst);
 
-    void IteratorsSearch(const SearchInfo& search_info, SearchResult& search_result);
+    void WriteSearchResultFromResultPool(SearchResult& search_result);
+    std::vector<std::vector<DisIdPair>>
+    IteratorsSearch(const SearchInfo& search_info);
     void ValidateSearchInfo(const SearchInfo& search_info);
-    void RefillIteratorResultPool();
+    void RefillIteratorResultPool(const size_t query_idx, const SearchInfo& search_info);
     std::vector<DisIdPair>
     GetBatchedNextResults(size_t query_idx,
                           const SearchInfo& search_info);
@@ -74,12 +91,24 @@ private:
 
     void Init(const SearchInfo& search_info);
 
+    void InitializeIterators(
+        const dataset::SearchDataset& dataset,
+        const SearchInfo& search_info,
+        const BitsetView& base_bitset,
+        const milvus::DataType& data_type,
+        const GetChunkDataFunc& get_chunk_data,
+        const GetBitsetViewFunc& get_chunk_bitset);
+
     int64_t batch_size_ = 0;
     std::vector<knowhere::IndexNode::IteratorPtr> iterators_;
+    std::vector<int64_t> seg_start_offset_for_chunk_ = {0};
     int8_t sign_ = 1;
-    int64_t vec_size_per_chunk_ = 1;
     size_t num_chunks_ = 1;
     size_t nq_ = 0;
+    std::vector<std::priority_queue<DisIdPair,
+                                    std::vector<DisIdPair>,
+                                    std::greater<>>>
+        result_pool_; // nq <-> result_pool_
 };
 
 }  // namespace milvus::query

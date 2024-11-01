@@ -245,6 +245,11 @@ func (node *QueryNode) InitSegcore() error {
 	cGpuMemoryPoolMaxSize := C.uint32_t(paramtable.Get().GpuConfig.MaxSize.GetAsUint32())
 	C.SegcoreSetKnowhereGpuMemoryPoolSize(cGpuMemoryPoolInitSize, cGpuMemoryPoolMaxSize)
 
+	cIteratorV2MaxIteratorNum := C.int32_t(paramtable.Get().QueryNodeCfg.IteratorV2MaxIteratorNum.GetAsInt32())
+	cIteratorV2DefaultTTL := C.int64_t(paramtable.Get().QueryNodeCfg.IteratorV2DefaultTTL.GetAsInt64())
+	cIteratorV2CleanUpInterval := C.int64_t(paramtable.Get().QueryNodeCfg.IteratorV2CleanUpInterval.GetAsInt64())
+	C.InitIteratorManager(cIteratorV2MaxIteratorNum, cIteratorV2DefaultTTL, cIteratorV2CleanUpInterval)
+
 	localDataRootPath := filepath.Join(paramtable.Get().LocalStorageCfg.Path.GetValue(), typeutil.QueryNodeRole)
 	initcore.InitLocalChunkManager(localDataRootPath)
 

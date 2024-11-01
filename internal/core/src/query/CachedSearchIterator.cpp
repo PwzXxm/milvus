@@ -19,6 +19,10 @@ CachedSearchIterator::CachedSearchIterator(
     const knowhere::DataSetPtr& dataset,
     const SearchInfo& search_info,
     const BitsetView& bitset) {
+    nq_ = dataset->GetRows();
+    result_pool_.resize(nq_);
+    Init(search_info);
+
     const auto search_json = index.PrepareSearchParams(search_info);
     auto expected_iterators =
         index.VectorIterators(dataset, search_json, bitset);
@@ -28,8 +32,6 @@ CachedSearchIterator::CachedSearchIterator(
         PanicInfo(ErrorCode::UnexpectedError,
                   "Failed to create iterators from index");
     }
-    nq_ = dataset->GetRows();
-    Init(search_info);
 }
 
 CachedSearchIterator::CachedSearchIterator(
@@ -39,6 +41,10 @@ CachedSearchIterator::CachedSearchIterator(
     const SearchInfo& search_info,
     const BitsetView& bitset,
     const milvus::DataType& data_type) {
+    nq_ = dataset.num_queries;
+    result_pool_.resize(nq_);
+    Init(search_info);
+
     auto expected_iterators = GetBruteForceSearchIterators(
         dataset, vec_data, row_count, search_info, bitset, data_type);
     if (expected_iterators.has_value()) {
@@ -47,8 +53,40 @@ CachedSearchIterator::CachedSearchIterator(
         PanicInfo(ErrorCode::UnexpectedError,
                   "Failed to create iterators from index");
     }
-    nq_ = dataset.num_queries;
-    Init(search_info);
+}
+
+void CachedSearchIterator::InitializeIterators(
+    const dataset::SearchDataset& dataset,
+    const SearchInfo& search_info,
+    const BitsetView& base_bitset,
+    const milvus::DataType& data_type,
+    const GetChunkDataFunc& get_chunk_data,
+    const GetBitsetViewFunc& get_chunk_bitset) {
+    
+    int64_t offset = 0;
+    for (int64_t chunk_id = 0; chunk_id < num_chunks_; ++chunk_id) {
+        seg_start_offset_for_chunk_[chunk_id] = offset;
+
+        auto [chunk_data, chunk_size] = get_chunk_data(chunk_id);
+        auto [sub_view, _] = get_chunk_bitset(base_bitset, offset, chunk_size);
+
+        auto expected_iterators = GetBruteForceSearchIterators(dataset,
+                                                             chunk_data,
+                                                             chunk_size,
+                                                             search_info,
+                                                             sub_view,
+                                                             data_type);
+        if (expected_iterators.has_value()) {
+            auto& chunk_iterators = expected_iterators.value();
+            iterators_.insert(iterators_.end(),
+                            std::make_move_iterator(chunk_iterators.begin()),
+                            std::make_move_iterator(chunk_iterators.end()));
+        } else {
+            PanicInfo(ErrorCode::UnexpectedError,
+                     "Failed to create iterators from index");
+        }
+        offset += chunk_size;
+    }
 }
 
 CachedSearchIterator::CachedSearchIterator(
@@ -58,42 +96,59 @@ CachedSearchIterator::CachedSearchIterator(
     const SearchInfo& search_info,
     const BitsetView& bitset,
     const milvus::DataType& data_type) {
+    const int64_t vec_size_per_chunk = vec_data->get_size_per_chunk();
+    num_chunks_ = upper_div(row_count, vec_size_per_chunk);
     nq_ = dataset.num_queries;
-    vec_size_per_chunk_ = vec_data->get_size_per_chunk();
-    num_chunks_ = upper_div(row_count, vec_size_per_chunk_);
+    result_pool_.resize(nq_);
+    Init(search_info);
 
     iterators_.reserve(nq_ * num_chunks_);
-    for (int64_t chunk_id = 0; chunk_id < num_chunks_; ++chunk_id) {
-        const auto chunk_data = vec_data->get_chunk_data(chunk_id);
-        auto element_begin = chunk_id * vec_size_per_chunk_;
-        auto element_end =
-            std::min(row_count, (chunk_id + 1) * vec_size_per_chunk_);
-        auto cur_chunk_size = element_end - element_begin;
+    seg_start_offset_for_chunk_.resize(num_chunks_);
 
-        // free bitset view here will not cause memory leak, because it is used
-        // only during construction of BF iterator
-        BitsetView sub_view = bitset.subview(element_begin, cur_chunk_size);
-
-        // generate `nq` iterators for a chunk
-        auto expected_iterators = GetBruteForceSearchIterators(dataset,
-                                                               chunk_data,
-                                                               cur_chunk_size,
-                                                               search_info,
-                                                               sub_view,
-                                                               data_type);
-        // iterators_ will be like this:
-        // | chunk 0 (nq iterators) | chunk 1 (nq iterators) | chunk 2 (nq iterators) | ... |
-        if (expected_iterators.has_value()) {
-            auto& chunk_iterators = expected_iterators.value();
-            iterators_.insert(iterators_.end(),
-                              std::make_move_iterator(chunk_iterators.begin()),
-                              std::make_move_iterator(chunk_iterators.end()));
-        } else {
-            PanicInfo(ErrorCode::UnexpectedError,
-                      "Failed to create iterators from index");
+    InitializeIterators(
+        dataset, 
+        search_info,
+        bitset,
+        data_type,
+        [&vec_data, vec_size_per_chunk, row_count](int64_t chunk_id) -> std::pair<const void*, int64_t> {
+            const auto chunk_data = vec_data->get_chunk_data(chunk_id);
+            int64_t chunk_size = std::min(vec_size_per_chunk, 
+                                        row_count - chunk_id * vec_size_per_chunk);
+            return {chunk_data, chunk_size};
+        },
+        [](const BitsetView& bitset, int64_t offset, int64_t chunk_size) -> BitsetViewWithMem {
+            return {bitset.subview(offset, chunk_size), {}};
         }
-    }
+    );
+}
+
+CachedSearchIterator::CachedSearchIterator(
+    const std::shared_ptr<ChunkedColumnBase>& column,
+    const dataset::SearchDataset& dataset,
+    const SearchInfo& search_info,
+    const BitsetView& bitset,
+    const milvus::DataType& data_type,
+    const GetBitsetViewFunc& get_bitset_view_with_mem) {
+    num_chunks_ = column->num_chunks();
+    nq_ = dataset.num_queries;
+    result_pool_.resize(nq_);
     Init(search_info);
+
+    iterators_.reserve(nq_ * num_chunks_);
+    seg_start_offset_for_chunk_.resize(num_chunks_);
+
+    InitializeIterators(
+        dataset,
+        search_info,
+        bitset,
+        data_type,
+        [&column](int64_t chunk_id) {
+            const char* chunk_data = column->Data(chunk_id);
+            int64_t chunk_size = column->chunk_row_nums(chunk_id);
+            return std::make_pair(static_cast<const void*>(chunk_data), chunk_size);
+        },
+        get_bitset_view_with_mem
+    );
 }
 
 void
@@ -112,21 +167,69 @@ CachedSearchIterator::NextBatch(const SearchInfo& search_info,
 
     ValidateSearchInfo(search_info);
 
+    if (result_pool_.size() != nq_) {
+        PanicInfo(ErrorCode::UnexpectedError,
+                  "Result pool size mismatch, expect %d, but got %d",
+                  nq_,
+                  result_pool_.size());
+    }
+
+    // TODO: refactor this logic
+    auto last_bound = search_info.iterator_v2_info_.value().last_bound;
+    if (last_bound.has_value()) {
+        last_bound = last_bound.value() * sign_;
+    }
+    for (size_t query_idx = 0; query_idx < nq_; ++query_idx) {
+        auto& rst_queue = result_pool_[query_idx];
+        while (!rst_queue.empty() && last_bound.has_value() &&
+               rst_queue.top().first <= last_bound.value()) {
+            rst_queue.pop();
+        }
+        while (rst_queue.size() < batch_size_ * 2) {
+            auto rst_size = rst_queue.size();
+            RefillIteratorResultPool(query_idx, search_info);
+            if (rst_queue.size() == rst_size) {
+                break;
+            }
+        }
+    }
+
     search_result.total_nq_ = nq_;
     search_result.unity_topK_ = batch_size_;
     search_result.seg_offsets_.resize(nq_ * batch_size_);
     search_result.distances_.resize(nq_ * batch_size_);
-    IteratorsSearch(search_info, search_result);
+
+    WriteSearchResultFromResultPool(search_result);
 }
 
 void
-CachedSearchIterator::IteratorsSearch(const SearchInfo& search_info,
-                                      SearchResult& search_result) {
+CachedSearchIterator::WriteSearchResultFromResultPool(SearchResult& search_result) {
     for (size_t query_idx = 0; query_idx < nq_; ++query_idx) {
-        auto rst = GetBatchedNextResults(query_idx, search_info);
-        WriteSingleQuerySearchResult(
-            search_result, query_idx, rst, search_info.round_decimal_);
+        auto& rst_queue = result_pool_[query_idx];
+        auto rst_dist = search_result.distances_.begin() + query_idx * batch_size_;
+        auto rst_seg_offset = search_result.seg_offsets_.begin() + query_idx * batch_size_;
+        for (size_t i = 0; i < batch_size_; ++i) {
+            if (rst_queue.empty()) {
+                rst_dist[i] = 1.0f / 0.0f;
+                rst_seg_offset[i] = -1;
+                continue;
+            }
+
+            auto dis_id_pair = rst_queue.top();
+            rst_dist[i] = dis_id_pair.first * sign_;
+            rst_seg_offset[i] = dis_id_pair.second;
+            rst_queue.pop();
+        }
     }
+}
+
+std::vector<std::vector<CachedSearchIterator::DisIdPair>>
+CachedSearchIterator::IteratorsSearch(const SearchInfo& search_info) {
+    std::vector<std::vector<DisIdPair>> rst_vec;
+    for (size_t query_idx = 0; query_idx < nq_; ++query_idx) {
+        rst_vec.push_back(GetBatchedNextResults(query_idx, search_info));
+    }
+    return rst_vec;
 }
 
 void
@@ -146,8 +249,12 @@ CachedSearchIterator::ValidateSearchInfo(const SearchInfo& search_info) {
 }
 
 void
-CachedSearchIterator::RefillIteratorResultPool() {
-    // Implementation...
+CachedSearchIterator::RefillIteratorResultPool(const size_t query_idx, const SearchInfo& search_info) {
+    auto rst = GetBatchedNextResults(query_idx, search_info);
+    // TODO: optimize this
+    for (const auto& dis_id_pair : rst) {
+        result_pool_[query_idx].push(dis_id_pair);
+    }
 }
 
 CachedSearchIterator::DisIdPair
@@ -155,7 +262,7 @@ CachedSearchIterator::ConvertIteratorResult(
     const std::pair<int64_t, float>& iter_rst, const size_t chunk_idx) {
     DisIdPair rst;
     rst.first = iter_rst.second * sign_;
-    rst.second = iter_rst.first + chunk_idx * vec_size_per_chunk_;
+    rst.second = iter_rst.first + seg_start_offset_for_chunk_[chunk_idx];
     return rst;
 }
 
@@ -230,15 +337,15 @@ CachedSearchIterator::GetBatchedNextResults(size_t query_idx,
     } else {
         MergeChunksResults(query_idx, last_bound, rst);
     }
-    std::sort(rst.begin(), rst.end());
-    if (sign_ == -1) {
-        std::for_each(rst.begin(), rst.end(), [this](DisIdPair& x) {
-            x.first = x.first * sign_;
-        });
-    }
-    while (rst.size() < batch_size_) {
-        rst.emplace_back(1.0f / 0.0f, -1);
-    }
+    // std::sort(rst.begin(), rst.end());
+    // if (sign_ == -1) {
+    //     std::for_each(rst.begin(), rst.end(), [this](DisIdPair& x) {
+    //         x.first = x.first * sign_;
+    //     });
+    // }
+    // while (rst.size() < batch_size_) {
+    //     rst.emplace_back(1.0f / 0.0f, -1);
+    // }
     return rst;
 }
 

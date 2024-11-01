@@ -974,6 +974,11 @@ SegmentSealedImpl::vector_search(SearchInfo& search_info,
     auto field_id = search_info.field_id_;
     auto& field_meta = schema_->operator[](field_id);
 
+    // TODO: consider growing/sealed interim with the same segment id
+    if (search_info.iterator_v2_info_.has_value()) {
+        search_info.iterator_v2_info_->token += std::to_string(this->get_segment_id());
+    }
+
     AssertInfo(field_meta.is_vector(),
                "The meta type of vector field is not vector type");
     if (get_bit(binlog_index_bitset_, field_id)) {

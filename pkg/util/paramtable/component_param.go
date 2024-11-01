@@ -2428,6 +2428,11 @@ type queryNodeConfig struct {
 
 	// worker
 	WorkerPoolingSize ParamItem `refreshable:"false"`
+
+	// search iterator v2
+	IteratorV2DefaultTTL      ParamItem `refreshable:"false"`
+	IteratorV2MaxIteratorNum  ParamItem `refreshable:"false"`
+	IteratorV2CleanUpInterval ParamItem `refreshable:"false"`
 }
 
 func (p *queryNodeConfig) init(base *BaseTable) {
@@ -3155,6 +3160,33 @@ user-task-polling:
 		Export:       true,
 	}
 	p.WorkerPoolingSize.Init(base.mgr)
+
+	p.IteratorV2DefaultTTL = ParamItem{
+		Key:          "queryNode.iteratorV2.defaultTTL",
+		Version:      "2.5.0",
+		DefaultValue: "300",
+		Doc:          "default ttl for search iterator v2, in seconds",
+		Export:       true,
+	}
+	p.IteratorV2DefaultTTL.Init(base.mgr)
+
+	p.IteratorV2MaxIteratorNum = ParamItem{
+		Key:          "queryNode.iteratorV2.maxIteratorNum",
+		Version:      "2.5.0",
+		DefaultValue: "100",
+		Doc:          "max number of search iterator v2 on a single query node",
+		Export:       true,
+	}
+	p.IteratorV2MaxIteratorNum.Init(base.mgr)
+
+	p.IteratorV2CleanUpInterval = ParamItem{
+		Key:          "queryNode.iteratorV2.cleanUpInterval",
+		Version:      "2.5.0",
+		DefaultValue: "10",
+		Doc:          "interval to clean up expired search iterator v2, in seconds",
+		Export:       true,
+	}
+	p.IteratorV2CleanUpInterval.Init(base.mgr)
 }
 
 // /////////////////////////////////////////////////////////////////////////////

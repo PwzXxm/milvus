@@ -990,6 +990,22 @@ func parseGuaranteeTsFromConsistency(ts, tMax typeutil.Timestamp, consistency co
 	return ts
 }
 
+func getMaxMvccTsFromChannels(channelsTs map[string]uint64, beginTs typeutil.Timestamp) typeutil.Timestamp {
+	maxTs := typeutil.Timestamp(0)
+	for _, ts := range channelsTs {
+		if ts > maxTs {
+			maxTs = ts
+		}
+	}
+
+	if maxTs == 0 {
+		log.Warn("no channel ts found, use beginTs instead")
+		return beginTs
+	}
+
+	return maxTs
+}
+
 func parseGuaranteeTs(ts, tMax typeutil.Timestamp) typeutil.Timestamp {
 	switch ts {
 	case strongTS:

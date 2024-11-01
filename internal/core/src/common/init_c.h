@@ -48,6 +48,9 @@ InitTrace(CTraceConfig* config);
 void
 SetTrace(CTraceConfig* config);
 
+void
+InitIteratorManager(const int32_t, const int64_t, const int64_t);
+
 #ifdef __cplusplus
 };
 #endif

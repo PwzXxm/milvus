@@ -14,10 +14,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
 #pragma once
 
 #include <chrono>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <optional>
@@ -26,6 +26,7 @@
 #include "common/Types.h"
 #include "knowhere/index/index_node.h"
 #include "log/Log.h"
+#include "query/CachedSearchIterator.h"
 
 namespace milvus {
 
@@ -60,19 +61,32 @@ class IteratorManager {
             default_ttl_.count(),
             clean_up_interval_.count());
         
-        clean_up_thread_ = std::thread(&IteratorManager::CleanUpExpiredIterators, this);
+        // clean_up_thread_ = std::thread(&IteratorManager::CleanUpExpiredIterators, this);
     }
 
-    void
-    Get(const std::string& token, std::optional<std::chrono::seconds> ttl = std::nullopt) {
+
+    // TDOO: Not thread-safe
+    query::CachedSearchIterator*
+    Get(const std::string& token) {
+        // std::lock_guard<std::mutex> lock(mutex_);
+
+        if(auto it = iterators_.find(token); it != iterators_.end()) {
+            return &it->second;
+        }
+        return nullptr;
+    }
+
+    void Put(const std::string& token, query::CachedSearchIterator&& iterator, std::optional<std::chrono::seconds> ttl = std::nullopt) {
         std::lock_guard<std::mutex> lock(mutex_);
-        auto it = iterators_.find(token);
-        if (it != iterators_.end()) {
-            return it->second;
+
+        // TODO: hack here
+        const std::string& cur_uuid = token.substr(0, 36);
+        if (cur_uuid != last_token) {
+            last_token = cur_uuid;
+            iterators_.clear();
         }
 
-        // auto iterator = knowhere::IndexNode::Create(token);
-        // iterators_[token] = iterator;
+        iterators_.insert({token, std::move(iterator)});
         // lru_list_.push_back({token, Clock::now() + ttl.value_or(default_ttl_)});
     }
 
@@ -91,18 +105,20 @@ class IteratorManager {
     std::chrono::seconds default_ttl_ = std::chrono::seconds(0);
     std::chrono::seconds clean_up_interval_ = std::chrono::seconds(0);
     std::mutex mutex_;
-    std::unordered_map<std::string, knowhere::IndexNode::IteratorPtr> iterators_;
+    std::unordered_map<std::string, query::CachedSearchIterator> iterators_;
     std::list<LruInfo> lru_list_;
-    std::thread clean_up_thread_;
+    // std::thread clean_up_thread_;
+
+    std::string last_token = "";
 
     IteratorManager() = default;
     ~IteratorManager() {
-        stop_clean_up_ = true;
-        LOG_INFO("IteratorManager is being destroyed, stopping clean up thread");
-        if (clean_up_thread_.joinable()) {
-            clean_up_thread_.join();
-        }
-        LOG_INFO("IteratorManager is destroyed");
+        // stop_clean_up_ = true;
+        // LOG_INFO("IteratorManager is being destroyed, stopping clean up thread");
+        // if (clean_up_thread_.joinable()) {
+        //     clean_up_thread_.join();
+        // }
+        // LOG_INFO("IteratorManager is destroyed");
     }
 
     void CleanUpExpiredIterators() {
@@ -123,4 +139,3 @@ class IteratorManager {
     }
 };
 }  // namespace milvus
-*/

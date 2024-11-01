@@ -23,10 +23,12 @@
 #include "common/Slice.h"
 #include "common/Common.h"
 #include "common/Tracer.h"
+#include "common/IteratorManager.h"
 #include "log/Log.h"
 
 std::once_flag flag1, flag2, flag3, flag4, flag5, flag6;
 std::once_flag traceFlag;
+std::once_flag iteratorManagerFlag;
 
 void
 InitIndexSliceSize(const int64_t size) {
@@ -105,4 +107,21 @@ SetTrace(CTraceConfig* config) {
                                                    config->oltpSecure,
                                                    config->nodeID};
     milvus::tracer::initTelemetry(traceConfig);
+}
+
+void
+InitIteratorManager(const int32_t maxIteratorNum,
+                    const int64_t defaultTTL,
+                    const int64_t cleanUpInterval) {
+    std::call_once(
+        iteratorManagerFlag,
+        [](int32_t maxIteratorNum,
+           int64_t defaultTTL,
+           int64_t cleanUpInterval) {
+            milvus::IteratorManager::GetInstance().Init(
+                maxIteratorNum, defaultTTL, cleanUpInterval);
+        },
+        maxIteratorNum,
+        defaultTTL,
+        cleanUpInterval);
 }
