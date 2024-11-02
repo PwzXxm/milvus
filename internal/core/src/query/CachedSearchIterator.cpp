@@ -205,9 +205,12 @@ CachedSearchIterator::NextBatch(const SearchInfo& search_info,
 void
 CachedSearchIterator::WriteSearchResultFromResultPool(SearchResult& search_result) {
     for (size_t query_idx = 0; query_idx < nq_; ++query_idx) {
-        auto& rst_queue = result_pool_[query_idx];
         auto rst_dist = search_result.distances_.begin() + query_idx * batch_size_;
         auto rst_seg_offset = search_result.seg_offsets_.begin() + query_idx * batch_size_;
+
+        // TODO: optimize this, not copy
+        // but do not need to pop, pop based on last_bound later
+        auto rst_queue = result_pool_[query_idx];
         for (size_t i = 0; i < batch_size_; ++i) {
             if (rst_queue.empty()) {
                 rst_dist[i] = 1.0f / 0.0f;
@@ -226,6 +229,7 @@ CachedSearchIterator::WriteSearchResultFromResultPool(SearchResult& search_resul
 std::vector<std::vector<CachedSearchIterator::DisIdPair>>
 CachedSearchIterator::IteratorsSearch(const SearchInfo& search_info) {
     std::vector<std::vector<DisIdPair>> rst_vec;
+    rst_vec.reserve(nq_);
     for (size_t query_idx = 0; query_idx < nq_; ++query_idx) {
         rst_vec.push_back(GetBatchedNextResults(query_idx, search_info));
     }
