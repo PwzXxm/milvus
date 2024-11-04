@@ -153,7 +153,8 @@ CachedSearchIterator::CachedSearchIterator(
 
 void
 CachedSearchIterator::NextBatch(const SearchInfo& search_info,
-                                SearchResult& search_result) {
+                                SearchResult& search_result,
+                                bool is_new) {
     if (iterators_.empty()) {
         return;
     }
@@ -185,9 +186,9 @@ CachedSearchIterator::NextBatch(const SearchInfo& search_info,
                rst_queue.top().first <= last_bound.value()) {
             rst_queue.pop();
         }
-        while (rst_queue.size() < batch_size_ * 2) {
+        while (rst_queue.size() < batch_size_) {
             auto rst_size = rst_queue.size();
-            RefillIteratorResultPool(query_idx, search_info);
+            RefillIteratorResultPool(query_idx, search_info, is_new);
             if (rst_queue.size() == rst_size) {
                 break;
             }
@@ -231,7 +232,7 @@ CachedSearchIterator::IteratorsSearch(const SearchInfo& search_info) {
     std::vector<std::vector<DisIdPair>> rst_vec;
     rst_vec.reserve(nq_);
     for (size_t query_idx = 0; query_idx < nq_; ++query_idx) {
-        rst_vec.push_back(GetBatchedNextResults(query_idx, search_info));
+        rst_vec.push_back(GetBatchedNextResults(query_idx, search_info, true));
     }
     return rst_vec;
 }
@@ -253,8 +254,8 @@ CachedSearchIterator::ValidateSearchInfo(const SearchInfo& search_info) {
 }
 
 void
-CachedSearchIterator::RefillIteratorResultPool(const size_t query_idx, const SearchInfo& search_info) {
-    auto rst = GetBatchedNextResults(query_idx, search_info);
+CachedSearchIterator::RefillIteratorResultPool(const size_t query_idx, const SearchInfo& search_info, bool is_new) {
+    auto rst = GetBatchedNextResults(query_idx, search_info, is_new);
     // TODO: optimize this
     for (const auto& dis_id_pair : rst) {
         result_pool_[query_idx].push(dis_id_pair);
@@ -321,7 +322,8 @@ CachedSearchIterator::MergeChunksResults(
 
 std::vector<CachedSearchIterator::DisIdPair>
 CachedSearchIterator::GetBatchedNextResults(size_t query_idx,
-                                            const SearchInfo& search_info) {
+                                            const SearchInfo& search_info,
+                                            bool is_new) {
     auto last_bound = search_info.iterator_v2_info_.value().last_bound;
     if (last_bound.has_value()) {
         last_bound = last_bound.value() * sign_;
@@ -334,7 +336,7 @@ CachedSearchIterator::GetBatchedNextResults(size_t query_idx,
         auto& iterator = iterators_[query_idx];
         while (iterator->HasNext() && rst.size() < batch_size_) {
             auto result = ConvertIteratorResult(iterator->Next());
-            if (!last_bound.has_value() || result.first > last_bound.value()) {
+            if (!is_new || !last_bound.has_value() || result.first > last_bound.value()) {
                 rst.emplace_back(result);
             }
         }

@@ -63,13 +63,17 @@ SearchOnSealedIndex(const Schema& schema,
         // cached_iter.NextBatch(search_info, search_result);
 
         auto& manager = IteratorManager::GetInstance();
-        auto iter = manager.Get(search_info.iterator_v2_info_->token);
-        if (iter == nullptr) {
+        auto iter_ptr = manager.Get(search_info.iterator_v2_info_->token);
+        if (iter_ptr == nullptr) {
             auto cached_iter = CachedSearchIterator(*vec_index, dataset, search_info, bitset);
-            manager.Put(search_info.iterator_v2_info_->token, std::move(cached_iter));
-            iter = manager.Get(search_info.iterator_v2_info_->token);
+            iter_ptr = manager.Put(search_info.iterator_v2_info_->token, std::move(cached_iter));
+            if (iter_ptr == nullptr) {
+                PanicInfo(ErrorCode::UnexpectedError, "Failed to put iterator to manager");
+            }
+            iter_ptr->NextBatch(search_info, search_result, true);
+        } else {
+            iter_ptr->NextBatch(search_info, search_result, false);
         }
-        iter->NextBatch(search_info, search_result);
         return;
     }
 

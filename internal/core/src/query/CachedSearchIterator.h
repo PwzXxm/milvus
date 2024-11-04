@@ -59,7 +59,7 @@ public:
                          const milvus::DataType& data_type,
                          const GetBitsetViewFunc& get_bitset_view_with_mem);
 
-    void NextBatch(const SearchInfo& search_info, SearchResult& search_result);
+    void NextBatch(const SearchInfo& search_info, SearchResult& search_result, bool is_new = true);
 
 private:
     using DisIdPair = std::pair<float, int64_t>;
@@ -80,10 +80,11 @@ private:
     std::vector<std::vector<DisIdPair>>
     IteratorsSearch(const SearchInfo& search_info);
     void ValidateSearchInfo(const SearchInfo& search_info);
-    void RefillIteratorResultPool(const size_t query_idx, const SearchInfo& search_info);
+    void RefillIteratorResultPool(const size_t query_idx, const SearchInfo& search_info, bool is_new);
     std::vector<DisIdPair>
     GetBatchedNextResults(size_t query_idx,
-                          const SearchInfo& search_info);
+                          const SearchInfo& search_info,
+                          bool is_new);
     void WriteSingleQuerySearchResult(SearchResult& search_result,
                                       const size_t idx,
                                       std::vector<DisIdPair>& rst,

@@ -76,7 +76,8 @@ class IteratorManager {
         return nullptr;
     }
 
-    void Put(const std::string& token, query::CachedSearchIterator&& iterator, std::optional<std::chrono::seconds> ttl = std::nullopt) {
+    query::CachedSearchIterator*
+    Put(const std::string& token, query::CachedSearchIterator&& iterator, std::optional<std::chrono::seconds> ttl = std::nullopt) {
         std::lock_guard<std::mutex> lock(mutex_);
 
         // TODO: hack here
@@ -86,8 +87,11 @@ class IteratorManager {
             iterators_.clear();
         }
 
-        iterators_.insert({token, std::move(iterator)});
-        // lru_list_.push_back({token, Clock::now() + ttl.value_or(default_ttl_)});
+        const auto& [it, inserted] = iterators_.insert({token, std::move(iterator)});
+        if (inserted) {
+            return &it->second;
+        }
+        return nullptr;
     }
 
     IteratorManager(const IteratorManager&) = delete;
