@@ -23,7 +23,7 @@
 #include "common/Slice.h"
 #include "common/Common.h"
 #include "common/Tracer.h"
-#include "common/IteratorManager.h"
+#include "common/SearchIteratorManager.h"
 #include "log/Log.h"
 
 std::once_flag flag1, flag2, flag3, flag4, flag5, flag6;
@@ -118,7 +118,7 @@ InitIteratorManager(const int32_t maxIteratorNum,
         [](int32_t maxIteratorNum,
            int64_t defaultTTL,
            int64_t cleanUpInterval) {
-            milvus::IteratorManager::GetInstance().Init(
+            milvus::SearchIteratorManager::GetInstance().Init(
                 maxIteratorNum, defaultTTL, cleanUpInterval);
         },
         maxIteratorNum,

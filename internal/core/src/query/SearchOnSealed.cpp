@@ -15,7 +15,7 @@
 
 #include "bitset/detail/element_wise.h"
 #include "common/BitsetView.h"
-#include "common/IteratorManager.h"
+#include "common/SearchIteratorManager.h"
 #include "common/QueryInfo.h"
 #include "common/Types.h"
 #include "mmap/Column.h"
@@ -59,21 +59,13 @@ SearchOnSealedIndex(const Schema& schema,
         dynamic_cast<index::VectorIndex*>(field_indexing->indexing_.get());
 
     if (search_info.iterator_v2_info_.has_value()) {
-        // auto cached_iter = CachedSearchIterator(*vec_index, dataset, search_info, bitset);
-        // cached_iter.NextBatch(search_info, search_result);
-
-        auto& manager = IteratorManager::GetInstance();
-        auto iter_ptr = manager.Get(search_info.iterator_v2_info_->token);
-        if (iter_ptr == nullptr) {
-            auto cached_iter = CachedSearchIterator(*vec_index, dataset, search_info, bitset);
-            iter_ptr = manager.Put(search_info.iterator_v2_info_->token, std::move(cached_iter));
-            if (iter_ptr == nullptr) {
-                PanicInfo(ErrorCode::UnexpectedError, "Failed to put iterator to manager");
-            }
-            iter_ptr->NextBatch(search_info, search_result, true);
-        } else {
-            iter_ptr->NextBatch(search_info, search_result, false);
-        }
+        SearchIteratorManager::GetInstance().NextBatchFrom(
+            search_info,
+            [&]() {
+                return std::make_unique<CachedSearchIterator>(
+                    *vec_index, dataset, search_info, bitset);
+            },
+            search_result);
         return;
     }
 
@@ -150,8 +142,18 @@ SearchOnSealed(const Schema& schema,
     };
 
     if (search_info.iterator_v2_info_.has_value()) {
-        CachedSearchIterator cached_iter(column, dataset, search_info, bitview, data_type, get_bitset_view_with_mem);
-        cached_iter.NextBatch(search_info, result);
+        SearchIteratorManager::GetInstance().NextBatchFrom(
+            search_info,
+            [&]() {
+                return std::make_unique<CachedSearchIterator>(
+                    column,
+                    dataset,
+                    search_info,
+                    bitview,
+                    data_type,
+                    get_bitset_view_with_mem);
+            },
+            result);
         return;
     }
 
@@ -235,16 +237,17 @@ SearchOnSealed(const Schema& schema,
         result.AssembleChunkVectorIterators(
             num_queries, 1, -1, sub_qr.chunk_iterators());
     } else if (search_info.iterator_v2_info_.has_value()) {
-        // CachedSearchIterator cached_iter(dataset, vec_data, row_count, search_info, bitset, data_type);
-        // cached_iter.NextBatch(search_info, result);
-        auto& manager = IteratorManager::GetInstance();
-        auto iter = manager.Get(search_info.iterator_v2_info_->token);
-        if (iter == nullptr) {
-            auto cached_iter = CachedSearchIterator(dataset, vec_data, row_count, search_info, bitset, data_type);
-            manager.Put(search_info.iterator_v2_info_->token, std::move(cached_iter));
-            iter = manager.Get(search_info.iterator_v2_info_->token);
-        }
-        iter->NextBatch(search_info, result);
+        SearchIteratorManager::GetInstance().NextBatchFrom(
+            search_info,
+            [&]() {
+                return std::make_unique<CachedSearchIterator>(dataset,
+                                                              vec_data,
+                                                              row_count,
+                                                              search_info,
+                                                              bitset,
+                                                              data_type);
+            },
+            result);
         return;
     } else {
         auto sub_qr = BruteForceSearch(

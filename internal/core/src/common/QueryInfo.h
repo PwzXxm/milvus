@@ -25,9 +25,10 @@
 namespace milvus {
 
 struct SearchIteratorV2Info {
-    std::string token;
-    uint32_t batch_size;
-    std::optional<double> last_bound;
+    std::string token = "";
+    uint32_t batch_size = 0;
+    int32_t ttl = -1;
+    std::optional<double> last_bound = std::nullopt;
 };
 
 struct SearchInfo {

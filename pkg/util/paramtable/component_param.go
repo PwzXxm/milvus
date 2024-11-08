@@ -3173,7 +3173,7 @@ user-task-polling:
 	p.IteratorV2MaxIteratorNum = ParamItem{
 		Key:          "queryNode.iteratorV2.maxIteratorNum",
 		Version:      "2.5.0",
-		DefaultValue: "100",
+		DefaultValue: "128",
 		Doc:          "max number of search iterator v2 on a single query node",
 		Export:       true,
 	}

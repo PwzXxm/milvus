@@ -27,6 +27,7 @@
 
 namespace milvus::query {
 
+// not thread-safe, not copyable
 class CachedSearchIterator {
 public:
     using BitsetViewWithMem = std::pair<BitsetView, std::vector<char>>;
@@ -58,6 +59,11 @@ public:
                          const BitsetView& bitset,
                          const milvus::DataType& data_type,
                          const GetBitsetViewFunc& get_bitset_view_with_mem);
+
+    CachedSearchIterator(const CachedSearchIterator&) = delete;
+    CachedSearchIterator& operator=(const CachedSearchIterator&) = delete;
+    CachedSearchIterator(CachedSearchIterator&&) = delete;
+    CachedSearchIterator& operator=(CachedSearchIterator&&) = delete;
 
     void NextBatch(const SearchInfo& search_info, SearchResult& search_result, bool is_new = true);
 

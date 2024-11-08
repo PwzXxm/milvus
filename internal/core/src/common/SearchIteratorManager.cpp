@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "common/IteratorManager.h"
+#include "common/SearchIteratorManager.h"
 
 namespace milvus {
 }  // namespace milvus

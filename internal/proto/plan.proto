@@ -59,6 +59,7 @@ message SearchIteratorV2Info {
   string token = 1;
   uint32 batch_size = 2;
   optional float last_bound = 3;
+  int32 ttl = 4;
 }
 
 message QueryInfo {
