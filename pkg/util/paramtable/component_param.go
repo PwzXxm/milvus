@@ -13,6 +13,7 @@ package paramtable
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path"
 	"strconv"
@@ -2470,7 +2471,7 @@ func (p *queryNodeConfig) init(base *BaseTable) {
 			} else if factor > 32 {
 				factor = 32
 			}
-			knowhereThreadPoolSize := uint32(hardware.GetCPUNum()) * uint32(factor)
+			knowhereThreadPoolSize := uint32(math.Floor(float64(hardware.GetCPUNum()) * 0.9))
 			return strconv.FormatUint(uint64(knowhereThreadPoolSize), 10)
 		},
 		Doc:    "The number of threads in knowhere's thread pool. If disk is enabled, the pool size will multiply with knowhereThreadPoolNumRatio([1, 32]).",

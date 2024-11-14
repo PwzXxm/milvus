@@ -427,13 +427,16 @@ func (t *searchTask) initSearchRequest(ctx context.Context) error {
 	log := log.Ctx(ctx).With(zap.Int64("collID", t.GetCollectionID()), zap.String("collName", t.collectionName))
 	// fetch search_growing from search param
 
+	_, plan_sp := otel.Tracer(typeutil.ProxyRole).Start(ctx, " initSearchRequest - try generate plan")
 	plan, queryInfo, offset, err := t.tryGeneratePlan(t.request.GetSearchParams(), t.request.GetDsl(), t.request.GetExprTemplateValues())
 	if err != nil {
 		return err
 	}
+	plan_sp.End()
 
 	t.SearchRequest.Offset = offset
 
+	_, partition_sp := otel.Tracer(typeutil.ProxyRole).Start(ctx, " initSearchRequest - try parse partition ids from plan")
 	if t.partitionKeyMode {
 		// isolatioin has tighter constraint, check first
 		mvErr := setQueryInfoIfMvEnable(queryInfo, t, plan)
@@ -448,6 +451,7 @@ func (t *searchTask) initSearchRequest(ctx context.Context) error {
 			t.SearchRequest.PartitionIDs = partitionIDs
 		}
 	}
+	partition_sp.End()
 
 	if t.requery {
 		plan.OutputFieldIds = nil

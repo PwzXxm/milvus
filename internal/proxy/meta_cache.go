@@ -26,6 +26,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 
@@ -1230,9 +1231,13 @@ func (m *MetaCache) safeGetDBInfo(database string) *databaseInfo {
 }
 
 func (m *MetaCache) AllocID(ctx context.Context) (int64, error) {
+	_, sp := otel.Tracer(typeutil.ProxyRole).Start(ctx, "MetaCache - AllocID")
+	defer sp.End()
+
 	m.IDLock.Lock()
 	defer m.IDLock.Unlock()
 
+	_, alloc_sp := otel.Tracer(typeutil.ProxyRole).Start(ctx, "MetaCache - AllocID - alloc id from rootcoord")
 	if m.IDIndex == m.IDCount {
 		resp, err := m.rootCoord.AllocID(ctx, &rootcoordpb.AllocIDRequest{
 			Count: 1000000,
@@ -1250,5 +1255,6 @@ func (m *MetaCache) AllocID(ctx context.Context) (int64, error) {
 	}
 	id := m.IDStart + m.IDIndex
 	m.IDIndex++
+	alloc_sp.End()
 	return id, nil
 }
