@@ -3,11 +3,13 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/cockroachdb/errors"
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/milvus-io/milvus-proto/go-api/v2/commonpb"
@@ -80,6 +82,67 @@ type SearchInfo struct {
 	offset     int64
 	parseError error
 	isIterator bool
+}
+
+func parseSearchIteratorV2Info(searchParamsPair []*commonpb.KeyValuePair, groupByFieldId int64, queryTopK *int64) (*planpb.SearchIteratorV2Info, error) {
+	isIteratorV2Str, _ := funcutil.GetAttrByKeyFromRepeatedKV(SearchIterV2Key, searchParamsPair)
+	isIteratorV2, _ := strconv.ParseBool(isIteratorV2Str)
+	if !isIteratorV2 {
+		return nil, nil
+	}
+
+	// disable groupBy when doing iteratorV2
+	// same behavior with V1
+	if isIteratorV2 && groupByFieldId > 0 {
+		return nil, merr.WrapErrParameterInvalid("", "",
+			"Not allowed to do groupBy when doing iteration")
+	}
+
+	// parse token, generate if not exist
+	token, _ := funcutil.GetAttrByKeyFromRepeatedKV(SearchIterTokenKey, searchParamsPair)
+	if token == "" {
+		generatedToken, err := uuid.NewRandom()
+		if err != nil {
+			return nil, err
+		}
+		token = generatedToken.String()
+	}
+
+	// parse batch size, required non-zero value
+	batchSizeStr, _ := funcutil.GetAttrByKeyFromRepeatedKV(SearchIterBatchSizeKey, searchParamsPair)
+	if batchSizeStr == "" {
+		return nil, fmt.Errorf("batch size is required")
+	}
+	batchSize, err := strconv.ParseInt(batchSizeStr, 0, 64)
+	if err != nil {
+		return nil, fmt.Errorf("batch size is invalid, %w", err)
+	}
+	if batchSize <= 0 {
+		return nil, fmt.Errorf("batch size should be greater than 0")
+	}
+	if batchSize > math.MaxUint32 {
+		return nil, fmt.Errorf("batch size cannot be greater than %d", math.MaxUint32)
+	}
+	*queryTopK = batchSize // for compatibility
+
+	// prepare plan iterator v2 info proto
+	planIteratorV2Info := &planpb.SearchIteratorV2Info{
+		Token:     token,
+		BatchSize: uint32(batchSize),
+	}
+
+	// append optional last bound if applicable
+	lastBoundStr, _ := funcutil.GetAttrByKeyFromRepeatedKV(SearchIterLastBoundKey, searchParamsPair)
+	if lastBoundStr != "" {
+		lastBound, err := strconv.ParseFloat(lastBoundStr, 32)
+		if err != nil {
+			return nil, err
+		}
+		lastBoundFloat32 := float32(lastBound)
+		planIteratorV2Info.LastBound = &lastBoundFloat32
+	}
+
+	return planIteratorV2Info, nil
 }
 
 // parseSearchInfo returns QueryInfo and offset
@@ -191,15 +254,21 @@ func parseSearchInfo(searchParamsPair []*commonpb.KeyValuePair, schema *schemapb
 			"Not allowed to do range-search when doing search-group-by")}
 	}
 
+	planSearchIteratorV2Info, err := parseSearchIteratorV2Info(searchParamsPair, groupByFieldId, &queryTopK)
+	if err != nil {
+		return &SearchInfo{planInfo: nil, offset: 0, isIterator: false, parseError: fmt.Errorf("parse iterator v2 info failed: %w", err)}
+	}
+
 	return &SearchInfo{
 		planInfo: &planpb.QueryInfo{
-			Topk:            queryTopK,
-			MetricType:      metricType,
-			SearchParams:    searchParamStr,
-			RoundDecimal:    roundDecimal,
-			GroupByFieldId:  groupByFieldId,
-			GroupSize:       groupSize,
-			GroupStrictSize: groupStrictSize,
+			Topk:                 queryTopK,
+			MetricType:           metricType,
+			SearchParams:         searchParamStr,
+			RoundDecimal:         roundDecimal,
+			GroupByFieldId:       groupByFieldId,
+			GroupSize:            groupSize,
+			GroupStrictSize:      groupStrictSize,
+			SearchIteratorV2Info: planSearchIteratorV2Info,
 		},
 		offset:     offset,
 		isIterator: isIterator,

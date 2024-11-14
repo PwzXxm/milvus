@@ -11,3 +11,9 @@
 
 add_source_at_current_directory_recursively()
 add_library(milvus_common OBJECT ${SOURCE_FILES})
+
+# compile with sse4.2 if x86_64 for folly
+# folly::f14::detail::F14LinkCheck<(folly::f14::detail::F14IntrinsicsMode)1>::check()
+if(__x86_64__)
+    set(CMAKE_CXX_FLAGS "-msse4.2 ${CMAKE_CXX_FLAGS}")
+endif()

@@ -31,8 +31,16 @@ BruteForceSearch(const dataset::SearchDataset& dataset,
                  const BitsetView& bitset,
                  DataType data_type);
 
+knowhere::expected<std::vector<knowhere::IndexNode::IteratorPtr>>
+GetBruteForceSearchIterators(const dataset::SearchDataset& dataset,
+                          const void* chunk_data_raw,
+                          int64_t chunk_rows,
+                          const SearchInfo& search_info,
+                          const BitsetView& bitset,
+                          DataType data_type);
+
 SubSearchResult
-BruteForceSearchIterators(const dataset::SearchDataset& dataset,
+PackBruteForceSearchIteratorsIntoSubResult(const dataset::SearchDataset& dataset,
                           const void* chunk_data_raw,
                           int64_t chunk_rows,
                           const SearchInfo& search_info,

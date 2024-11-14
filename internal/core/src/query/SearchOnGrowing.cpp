@@ -14,6 +14,7 @@
 #include "common/Tracer.h"
 #include "common/Types.h"
 #include "SearchOnGrowing.h"
+#include "query/CachedSearchIterator.h"
 #include "query/SearchBruteForce.h"
 #include "query/SearchOnIndex.h"
 
@@ -111,6 +112,13 @@ SearchOnGrowing(const segcore::SegmentGrowingImpl& segment,
         int32_t current_chunk_id = 0;
         // step 3: brute force search where small indexing is unavailable
         auto vec_ptr = record.get_data_base(vecfield_id);
+
+        if (info.iterator_v2_info_.has_value()) {
+            CachedSearchIterator cached_iter(search_dataset, vec_ptr, active_count, info, bitset, data_type);
+            cached_iter.NextBatch(info, search_result);
+            return;
+        }
+
         auto vec_size_per_chunk = vec_ptr->get_size_per_chunk();
         auto max_chunk = upper_div(active_count, vec_size_per_chunk);
 
@@ -125,12 +133,13 @@ SearchOnGrowing(const segcore::SegmentGrowingImpl& segment,
 
             auto sub_view = bitset.subview(element_begin, size_per_chunk);
             if (info.group_by_field_id_.has_value()) {
-                auto sub_qr = BruteForceSearchIterators(search_dataset,
-                                                        chunk_data,
-                                                        size_per_chunk,
-                                                        info,
-                                                        sub_view,
-                                                        data_type);
+                auto sub_qr =
+                    PackBruteForceSearchIteratorsIntoSubResult(search_dataset,
+                                                               chunk_data,
+                                                               size_per_chunk,
+                                                               info,
+                                                               sub_view,
+                                                               data_type);
                 final_qr.merge(sub_qr);
             } else {
                 auto sub_qr = BruteForceSearch(search_dataset,
