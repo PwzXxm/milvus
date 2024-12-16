@@ -90,6 +90,10 @@ class CachedSearchIterator {
     int8_t sign_ = 1;
     size_t num_chunks_ = 1;
     size_t nq_ = 0;
+    std::vector<std::priority_queue<DisIdPair,
+                                    std::vector<DisIdPair>,
+                                    std::greater<>>>
+        result_pools_;  // nq <-> result_pool_
 
     struct IterIdDisIdPairComparator {
         bool

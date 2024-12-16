@@ -2517,6 +2517,8 @@ type queryNodeConfig struct {
 
 	// worker
 	WorkerPoolingSize ParamItem `refreshable:"false"`
+
+	SearchIteratorV2MaxIteratorNum ParamItem `refreshable:"false"`
 }
 
 func (p *queryNodeConfig) init(base *BaseTable) {
@@ -3244,6 +3246,14 @@ user-task-polling:
 		Export:       true,
 	}
 	p.WorkerPoolingSize.Init(base.mgr)
+
+	p.SearchIteratorV2MaxIteratorNum = ParamItem{
+		Key:          "queryNode.searchIteratorV2.maxIteratorNum",
+		Version:      "2.5.1",
+		DefaultValue: "128",
+		Doc:          "the max number of search iterator v2 on a single query node, prefer to be a power of 2",
+	}
+	p.SearchIteratorV2MaxIteratorNum.Init(base.mgr)
 }
 
 // /////////////////////////////////////////////////////////////////////////////

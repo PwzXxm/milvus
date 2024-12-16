@@ -28,6 +28,7 @@ struct SearchIteratorV2Info {
     std::string token = "";
     uint32_t batch_size = 0;
     std::optional<float> last_bound = std::nullopt;
+    std::optional<int32_t> ttl = std::nullopt;
 };
 
 struct SearchInfo {

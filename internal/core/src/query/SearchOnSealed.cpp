@@ -17,6 +17,7 @@
 #include "common/BitsetView.h"
 #include "common/QueryInfo.h"
 #include "common/Types.h"
+#include "common/SearchIteratorManager.h"
 #include "mmap/Column.h"
 #include "query/CachedSearchIterator.h"
 #include "query/SearchBruteForce.h"
@@ -58,10 +59,13 @@ SearchOnSealedIndex(const Schema& schema,
         dynamic_cast<index::VectorIndex*>(field_indexing->indexing_.get());
 
     if (search_info.iterator_v2_info_.has_value()) {
-        CachedSearchIterator cached_iter(
-            *vec_index, dataset, search_info, bitset);
-        cached_iter.NextBatch(search_info, search_result);
-        return;
+        SearchIteratorManager::GetInstance().NextBatchFrom(
+            search_info,
+            [&]() {
+                return std::make_unique<CachedSearchIterator>(
+                    *vec_index, dataset, search_info, bitset);
+            },
+            search_result);
     }
 
     if (!milvus::exec::PrepareVectorIteratorsFromIndex(search_info,
@@ -114,9 +118,13 @@ SearchOnSealed(const Schema& schema,
     CheckBruteForceSearchParam(field, search_info);
 
     if (search_info.iterator_v2_info_.has_value()) {
-        CachedSearchIterator cached_iter(
-            column, query_dataset, search_info, index_info, bitview, data_type);
-        cached_iter.NextBatch(search_info, result);
+        SearchIteratorManager::GetInstance().NextBatchFrom(
+            search_info,
+            [&]() {
+                return std::make_unique<CachedSearchIterator>(
+                    column, query_dataset, search_info, index_info, bitview, data_type);
+            },
+            result);
         return;
     }
 
@@ -204,13 +212,19 @@ SearchOnSealed(const Schema& schema,
         result.AssembleChunkVectorIterators(
             num_queries, 1, {0}, sub_qr.chunk_iterators());
     } else if (search_info.iterator_v2_info_.has_value()) {
-        CachedSearchIterator cached_iter(query_dataset,
-                                         raw_dataset,
-                                         search_info,
-                                         index_info,
-                                         bitset,
-                                         data_type);
-        cached_iter.NextBatch(search_info, result);
+        SearchIteratorManager::GetInstance().NextBatchFrom(
+            search_info,
+            [&]() {
+                return std::make_unique<CachedSearchIterator>(
+                    query_dataset,
+                    raw_dataset,
+                    search_info,
+                    index_info,
+                    bitset,
+                    data_type);
+            },
+            result);
+
         return;
     } else {
         auto sub_qr = BruteForceSearch(query_dataset,
