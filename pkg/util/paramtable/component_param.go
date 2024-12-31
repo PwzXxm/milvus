@@ -1304,6 +1304,7 @@ type proxyConfig struct {
 	SkipAutoIDCheck              ParamItem `refreshable:"true"`
 	SkipPartitionKeyCheck        ParamItem `refreshable:"true"`
 	EnablePublicPrivilege        ParamItem `refreshable:"false"`
+	MaxVarCharLength             ParamItem `refreshable:"false"`
 
 	AccessLog AccessLogConfig
 
@@ -1715,6 +1716,13 @@ please adjust in embedded Milvus: false`,
 		Doc:          "switch for whether proxy shall enable public privilege",
 	}
 	p.EnablePublicPrivilege.Init(base.mgr)
+
+	p.MaxVarCharLength = ParamItem{
+		Key:          "proxy.maxVarCharLength",
+		Version:      "2.4.19",              // hotfix
+		DefaultValue: strconv.Itoa(1048576), // 1M, 245K in 2.4.x
+	}
+	p.MaxVarCharLength.Init(base.mgr)
 
 	p.GracefulStopTimeout = ParamItem{
 		Key:          "proxy.gracefulStopTimeout",

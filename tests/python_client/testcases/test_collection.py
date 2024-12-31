@@ -3878,7 +3878,7 @@ class TestCollectionString(TestcaseBase):
         max_length = 1048576 + 1
         string_field = cf.gen_string_field(max_length=max_length)
         schema = cf.gen_collection_schema([int_field, string_field, vec_field])
-        error = {ct.err_code: 1048576, ct.err_msg: "the maximum length specified for a VarChar should be in (0, 1048576]"}
+        error = {ct.err_code: 65535, ct.err_msg: "the maximum length specified for a VarChar should be in (0, 1048576]"}
         self.collection_wrap.init_collection(name=c_name, schema=schema,
                                              check_task=CheckTasks.err_res, check_items=error)
 
@@ -4101,13 +4101,13 @@ class TestCollectionARRAY(TestcaseBase):
 
     @pytest.mark.tags(CaseLabel.L2)
     @pytest.mark.skip("https://github.com/milvus-io/pymilvus/issues/2041")
-    @pytest.mark.parametrize("max_length", [[], 'a', (), -1, 65536])
+    @pytest.mark.parametrize("max_length", [[], 'a', (), -1, 1048576 + 1])
     def test_collection_string_array_max_length_invalid(self, max_length):
         """
         target: Create string array with invalid max length
         method: Create string array with invalid max length
                 1. Type invalid: [], 'a', ()
-                2. Value invalid: <0, >max_length(65535)
+                2. Value invalid: <0, >max_length(1048576)
         expected: Raise exception
         """
         int_field = cf.gen_int64_field(is_primary=True)
