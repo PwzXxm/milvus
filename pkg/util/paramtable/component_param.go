@@ -1341,6 +1341,7 @@ type proxyConfig struct {
 	SkipPartitionKeyCheck        ParamItem `refreshable:"true"`
 	EnablePublicPrivilege        ParamItem `refreshable:"false"`
 	MaxVarCharLength             ParamItem `refreshable:"false"`
+	MaxTextLength                ParamItem `refreshable:"false"`
 
 	AccessLog AccessLogConfig
 
@@ -1760,6 +1761,14 @@ please adjust in embedded Milvus: false`,
 		Doc:          "maximum number of characters for a varchar field; this value is overridden by the value in a pre-existing schema if applicable",
 	}
 	p.MaxVarCharLength.Init(base.mgr)
+
+	p.MaxTextLength = ParamItem{
+		Key:          "proxy.maxTextLength",
+		Version:      "2.6.0",
+		DefaultValue: strconv.Itoa(2 * 1024 * 1024), // 2M
+		Doc:          "maximum number of characters for a row of the text field",
+	}
+	p.MaxTextLength.Init(base.mgr)
 
 	p.GracefulStopTimeout = ParamItem{
 		Key:          "proxy.gracefulStopTimeout",
