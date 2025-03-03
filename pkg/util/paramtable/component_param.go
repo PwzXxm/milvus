@@ -4552,6 +4552,8 @@ type dataNodeConfig struct {
 	BloomFilterApplyParallelFactor ParamItem `refreshable:"true"`
 
 	DeltalogFormat ParamItem `refreshable:"false"`
+
+	LargeObjectThreshold ParamItem `refreshable:"true"`
 }
 
 func (p *dataNodeConfig) init(base *BaseTable) {
@@ -4944,6 +4946,15 @@ if this parameter <= 0, will set it as 10`,
 		Export:       true,
 	}
 	p.DeltalogFormat.Init(base.mgr)
+
+	p.LargeObjectThreshold = ParamItem{
+		Key:          "dataNode.largeObjectThreshold",
+		Version:      "2.6.0",
+		DefaultValue: "262144", // 256 * 1024 = 256K
+		Doc:          "the threshold of lob length, if the number of bytes is greater than this value, it will be treated as lob",
+		Export:       true,
+	}
+	p.LargeObjectThreshold.Init(base.mgr)
 }
 
 // /////////////////////////////////////////////////////////////////////////////

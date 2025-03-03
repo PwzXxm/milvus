@@ -501,6 +501,40 @@ func (w *NativePayloadWriter) AddOneStringToPayload(data string, isValid bool) e
 	return nil
 }
 
+func (w *NativePayloadWriter) AddOneLobBinaryToPayload(data *LobStruct, isValid bool) error {
+	if w.finished {
+		return errors.New("can't append data to finished lob binary payload")
+	}
+
+	if !w.nullable && !isValid {
+		return merr.WrapErrParameterInvalidMsg("not support null when nullable is false")
+	}
+
+	builder, ok := w.builder.(*array.DenseUnionBuilder)
+	if !ok {
+		return errors.New("failed to cast StructBuilder")
+	}
+
+	valBuilder := builder.FieldBuilder(0).(*array.BinaryBuilder)
+	idBuilder := builder.FieldBuilder(1).(*array.Int64Builder)
+
+	if !isValid {
+		builder.AppendNull()
+	} else {
+		builder.Append(true)
+		if data.IsLong {
+			infoBuilder.Append(true)
+			idBuilder.Append(data.Id)
+			lenBuilder.Append(uint64(len(data.Data)))
+		} else {
+			valBuilder.Append(data.Data)
+			infoBuilder.AppendNull()
+		}
+	}
+
+	return nil
+}
+
 func (w *NativePayloadWriter) AddOneArrayToPayload(data *schemapb.ScalarField, isValid bool) error {
 	if w.finished {
 		return errors.New("can't append data to finished array payload")
@@ -779,8 +813,10 @@ func MilvusDataTypeToArrowType(dataType schemapb.DataType, dim int) arrow.DataTy
 		return &arrow.Float32Type{}
 	case schemapb.DataType_Double:
 		return &arrow.Float64Type{}
-	case schemapb.DataType_VarChar, schemapb.DataType_String, schemapb.DataType_Text:
+	case schemapb.DataType_VarChar, schemapb.DataType_String:
 		return &arrow.StringType{}
+	case schemapb.DataType_Text:
+		return &arrow.DenseUnionType{}
 	case schemapb.DataType_Array:
 		return &arrow.BinaryType{}
 	case schemapb.DataType_JSON:

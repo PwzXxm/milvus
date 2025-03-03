@@ -36,6 +36,7 @@ type PayloadWriterInterface interface {
 	AddFloatToPayload([]float32, []bool) error
 	AddDoubleToPayload([]float64, []bool) error
 	AddOneStringToPayload(string, bool) error
+	AddOneLobBinaryToPayload([]byte, bool) error
 	AddOneArrayToPayload(*schemapb.ScalarField, bool) error
 	AddOneJSONToPayload([]byte, bool) error
 	AddBinaryVectorToPayload([]byte, int) error

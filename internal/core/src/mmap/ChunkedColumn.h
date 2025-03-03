@@ -297,6 +297,9 @@ class ChunkedSparseFloatColumn : public ChunkedColumnBase {
     int64_t dim_ = 0;
 };
 
+
+using ChunkedTextType = std::string;
+
 template <typename T>
 class ChunkedVariableColumn : public ChunkedColumnBase {
  public:

@@ -384,6 +384,12 @@ func (wb *writeBufferBase) yieldBuffer(segmentID int64) ([]*storage.InsertData, 
 	timeRange := buffer.GetTimeRange()
 	insert, bm25, delta := buffer.Yield()
 
+	for _, data := range insert {
+		for field, fieldData := range data.Data {
+			log.Info("--- Yield", zap.Any("field", field), zap.Any("fieldData type", fieldData.GetDataType()))
+		}
+	}
+
 	return insert, bm25, delta, timeRange, start
 }
 

@@ -113,4 +113,14 @@ InsertData::serialize_to_local_file() {
     return event.Serialize();
 }
 
+std::shared_ptr<ArrowDataWrapper>
+InsertData::GetReader() {
+    auto ret = std::make_shared<ArrowDataWrapper>();
+    ret->reader = payload_reader_->get_reader();
+    ret->arrow_reader = payload_reader_->get_file_reader();
+    ret->file_data = data_;
+    ret->lob_bitset = field_data_meta_->lob_bitset;
+    return ret;
+}
+
 }  // namespace milvus::storage

@@ -47,6 +47,9 @@ class InsertData : public DataCodec {
     std::vector<uint8_t>
     serialize_to_local_file();
 
+    std::shared_ptr<ArrowDataWrapper>
+    GetReader() override;
+
  private:
     std::optional<FieldDataMeta> field_data_meta_;
 };

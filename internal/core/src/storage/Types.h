@@ -65,6 +65,7 @@ struct FieldDataMeta {
     int64_t segment_id;
     int64_t field_id;
     proto::schema::FieldSchema field_schema;
+    std::optional<BitsetTypePtr> lob_bitset = std::nullopt;
 };
 
 enum CodecType {

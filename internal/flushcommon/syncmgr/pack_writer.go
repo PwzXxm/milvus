@@ -23,6 +23,7 @@ import (
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 
+	"github.com/milvus-io/milvus-proto/go-api/v2/schemapb"
 	"github.com/milvus-io/milvus/internal/allocator"
 	"github.com/milvus-io/milvus/internal/flushcommon/metacache"
 	"github.com/milvus-io/milvus/internal/storage"
@@ -31,6 +32,7 @@ import (
 	"github.com/milvus-io/milvus/pkg/v2/proto/datapb"
 	"github.com/milvus-io/milvus/pkg/v2/util/metautil"
 	"github.com/milvus-io/milvus/pkg/v2/util/retry"
+	"github.com/milvus-io/milvus/pkg/v2/util/typeutil"
 )
 
 type PackWriter interface {
@@ -97,11 +99,43 @@ func (bw *BulkPackWriter) Write(ctx context.Context, pack *SyncPack) (
 	return
 }
 
+func (bw *BulkPackWriter) assignLobIds(insertData []*storage.InsertData) error {
+	for _, data := range insertData {
+		for _, fieldData := range data.Data {
+			if fieldData.GetDataType() == schemapb.DataType_Text {
+				textFieldData := fieldData.(*storage.StringFieldData)
+				if textFieldData.IsLobs.Count() == 0 {
+					// no LOB in this field
+					continue
+				}
+
+				textFieldData.LobIds = make(map[uint]typeutil.UniqueID)
+				for i, e := textFieldData.IsLobs.NextSet(0); e; i, e = textFieldData.IsLobs.NextSet(i + 1) {
+					textFieldData.LobIds[i] = bw.nextID()
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// getLobCount returns the number of large objects in insert data
+func (bw *BulkPackWriter) getLobCount(insertData []*storage.InsertData) int {
+	lobCount := 0
+	for _, data := range insertData {
+		for _, info := range data.Infos {
+			lobCount += info.LobTotalCnt
+		}
+	}
+	return lobCount
+}
+
 // prefetchIDs pre-allcates ids depending on the number of blobs current task contains.
 func (bw *BulkPackWriter) prefetchIDs(pack *SyncPack) error {
 	totalIDCount := 0
 	if len(pack.insertData) > 0 {
 		totalIDCount += len(pack.insertData[0].Data) * 2 // binlogs and statslogs
+		totalIDCount += bw.getLobCount(pack.insertData)
 	}
 	if pack.isFlush {
 		totalIDCount++ // merged stats log
@@ -136,6 +170,13 @@ func (bw *BulkPackWriter) nextID() int64 {
 	return r
 }
 
+func (bw *BulkPackWriter) writeLob(ctx context.Context, lobDir string, value []byte) error {
+	key := path.Join(bw.chunkManager.RootPath(), common.SegmentLobPath, lobDir)
+	return retry.Do(ctx, func() error {
+		return bw.chunkManager.Write(ctx, key, value)
+	}, bw.writeRetryOpts...)
+}
+
 func (bw *BulkPackWriter) writeLog(ctx context.Context, blob *storage.Blob,
 	root, p string, pack *SyncPack,
 ) (*datapb.Binlog, error) {
@@ -165,6 +206,20 @@ func (bw *BulkPackWriter) writeInserts(ctx context.Context, pack *SyncPack) (map
 
 	serializer, err := NewStorageSerializer(bw.metaCache)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := bw.assignLobIds(pack.insertData); err != nil {
+		return nil, err
+	}
+	if err := storage.SerializeAndUploadLobs(
+		ctx,
+		pack.insertData,
+		pack.collectionID,
+		pack.partitionID,
+		pack.segmentID,
+		bw.writeLob,
+	); err != nil {
 		return nil, err
 	}
 

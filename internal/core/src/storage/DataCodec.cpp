@@ -15,6 +15,7 @@
 // limitations under the License.
 
 #include "storage/DataCodec.h"
+#include "common/Types.h"
 #include "storage/Event.h"
 #include "storage/Util.h"
 #include "storage/InsertData.h"
@@ -24,6 +25,41 @@
 #include "common/Consts.h"
 
 namespace milvus::storage {
+
+
+// DeserializeLobBitset deserializes the lob bitset from golang side InsertCodec
+// The format after serialization is
+// uint64_t length;  // 8 bytes for length
+// uint8_t data[length/8+1];
+BitsetTypePtr
+DeserializeLobBitset(const std::any& lob_bitset) {
+    const auto& bytes = std::any_cast<std::vector<uint8_t>>(lob_bitset);
+    if (bytes.empty()) {
+        std::cout << "--- lob bitset is empty" << std::endl;
+        return nullptr;
+    }
+
+    // Read length as little endian
+    uint64_t length = 0;
+    for (int i = 0; i < 8; ++i) {
+        length |= static_cast<uint64_t>(bytes[i]) << (i * 8);
+    }
+    if (length == 0) {
+        return nullptr;
+    }
+
+    std::cout << "--- lob bitset length: " << length << std::endl;
+
+    BitsetTypePtr bitset = std::make_shared<BitsetType>(length);
+
+    for (uint64_t i = 0; i < length; ++i) {
+        if (bytes[8 + i / 8] & (1 << (i % 8))) {
+            bitset->set(i);
+        }
+    }
+
+    return bitset;
+}
 
 // deserialize remote insert and index file
 std::unique_ptr<DataCodec>
@@ -40,6 +76,9 @@ DeserializeRemoteFileData(BinlogReaderPtr reader, bool is_field_data) {
                             descriptor_fix_part.partition_id,
                             descriptor_fix_part.segment_id,
                             descriptor_fix_part.field_id};
+    if (extras.find(LOB_BITSET) != extras.end()) {
+        data_meta.lob_bitset = DeserializeLobBitset(extras[LOB_BITSET]);
+    }
     EventHeader header(reader);
     switch (header.event_type_) {
         case EventType::InsertEvent: {

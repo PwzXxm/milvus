@@ -173,6 +173,12 @@ DescriptorEventData::DescriptorEventData(BinlogReaderPtr reader) {
     if (json.contains(NULLABLE)) {
         extras[NULLABLE] = static_cast<bool>(json[NULLABLE]);
     }
+    std::cout << "--- json" << json.dump() << std::endl;
+    std::cout << "--- json contains LOB_BITSET " << json.contains(LOB_BITSET) << std::endl;
+    if (json.contains(LOB_BITSET)) {
+        std::cout << "--- json[LOB_BITSET] " << json[LOB_BITSET] << std::endl;
+        extras[LOB_BITSET] = static_cast<std::vector<uint8_t>>(json[LOB_BITSET]);
+    }
 }
 
 std::vector<uint8_t>

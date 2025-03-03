@@ -87,7 +87,7 @@ StringChunkWriter::finish() {
     char padding[MMAP_STRING_PADDING];
     target_->write(padding, MMAP_STRING_PADDING);
     auto [data, size] = target_->get();
-    return std::make_shared<StringChunk>(row_nums_, data, size, nullable_);
+    return std::make_shared<StringChunk>(row_nums_, data, size, nullable_, lob_bitset_);
 }
 
 void
@@ -154,7 +154,7 @@ JSONChunkWriter::finish() {
     target_->write(padding, simdjson::SIMDJSON_PADDING);
 
     auto [data, size] = target_->get();
-    return std::make_shared<JSONChunk>(row_nums_, data, size, nullable_);
+    return std::make_shared<JSONChunk>(row_nums_, data, size, nullable_, std::nullopt);
 }
 
 void
@@ -314,7 +314,8 @@ SparseFloatVectorChunkWriter::finish() {
 std::shared_ptr<Chunk>
 create_chunk(const FieldMeta& field_meta,
              int dim,
-             std::shared_ptr<arrow::RecordBatchReader> r) {
+             std::shared_ptr<arrow::RecordBatchReader> r,
+             std::optional<BitsetTypePtr> lob_bitset) {
     std::shared_ptr<ChunkWriterBase> w;
     bool nullable = field_meta.is_nullable();
 
@@ -385,9 +386,12 @@ create_chunk(const FieldMeta& field_meta,
             break;
         }
         case milvus::DataType::VARCHAR:
-        case milvus::DataType::STRING:
-        case milvus::DataType::TEXT: {
+        case milvus::DataType::STRING: {
             w = std::make_shared<StringChunkWriter>(nullable);
+            break;
+        }
+        case milvus::DataType::TEXT: {
+            w = std::make_shared<StringChunkWriter>(nullable, std::move(lob_bitset));
             break;
         }
         case milvus::DataType::JSON: {

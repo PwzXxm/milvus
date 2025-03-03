@@ -170,6 +170,8 @@ struct ArrowDataWrapper {
     std::shared_ptr<parquet::arrow::FileReader> arrow_reader;
     // underlying file data memory, must outlive the arrow reader
     std::shared_ptr<uint8_t[]> file_data;
+
+    std::optional<BitsetTypePtr> lob_bitset = std::nullopt;
 };
 using ArrowReaderChannel = Channel<std::shared_ptr<milvus::ArrowDataWrapper>>;
 

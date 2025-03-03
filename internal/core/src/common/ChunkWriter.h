@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <memory>
 #include <numeric>
+#include <utility>
 #include <vector>
 #include "arrow/array/array_primitive.h"
 #include "common/ChunkTarget.h"
@@ -161,12 +162,18 @@ ChunkWriter<arrow::BooleanArray, bool>::write(
 class StringChunkWriter : public ChunkWriterBase {
  public:
     using ChunkWriterBase::ChunkWriterBase;
+    StringChunkWriter(bool nullable, std::optional<BitsetTypePtr> lob_bitset)
+        : ChunkWriterBase(nullable), lob_bitset_(std::move(lob_bitset)) {
+    }
 
     void
     write(std::shared_ptr<arrow::RecordBatchReader> data) override;
 
     std::shared_ptr<Chunk>
     finish() override;
+
+ private:
+    std::optional<BitsetTypePtr> lob_bitset_;
 };
 
 class JSONChunkWriter : public ChunkWriterBase {
@@ -216,7 +223,8 @@ class SparseFloatVectorChunkWriter : public ChunkWriterBase {
 std::shared_ptr<Chunk>
 create_chunk(const FieldMeta& field_meta,
              int dim,
-             std::shared_ptr<arrow::RecordBatchReader> r);
+             std::shared_ptr<arrow::RecordBatchReader> r,
+             std::optional<BitsetTypePtr> lob_bitset = std::nullopt);
 
 std::shared_ptr<Chunk>
 create_chunk(const FieldMeta& field_meta,

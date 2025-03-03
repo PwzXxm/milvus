@@ -28,6 +28,7 @@ import (
 	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/apache/arrow/go/v17/arrow/array"
 	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/bits-and-blooms/bitset"
 	"github.com/samber/lo"
 
 	"github.com/milvus-io/milvus-proto/go-api/v2/schemapb"
@@ -56,6 +57,22 @@ type CompositeBinlogRecordReader struct {
 
 	schema *schemapb.CollectionSchema
 	index  map[FieldID]int16
+}
+
+func (crr *CompositeBinlogRecordReader) GetLobBitsetFromDescriptorExtra() ([]*bitset.BitSet, error) {
+	bitsets := make([]*bitset.BitSet, 0)
+	blobs, err := crr.BlobsReader()
+	if err != nil {
+		return nil, err
+	}
+	for _, blob := range blobs {
+		r, err := NewBinlogReader(blob.Value)
+		if err != nil {
+			return nil, err
+		}
+		bitsets = append(bitsets, r.GetLobBitsetFromDescriptorExtra())
+	}
+	return bitsets, nil
 }
 
 func (crr *CompositeBinlogRecordReader) iterateNextBatch() error {

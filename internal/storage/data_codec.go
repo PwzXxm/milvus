@@ -21,7 +21,9 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 
+	"github.com/bits-and-blooms/bitset"
 	"github.com/samber/lo"
 
 	"github.com/milvus-io/milvus-proto/go-api/v2/schemapb"
@@ -207,6 +209,56 @@ func (insertCodec *InsertCodec) SerializePkStatsByData(data *InsertData) (*Blob,
 	return nil, fmt.Errorf("there is no pk field")
 }
 
+// serialize bitset.Bitset by hand
+// The reason is that the byte order setting of bitset package is package level,
+// which is not safe to call.
+// Also, as we will deserialize the bitset from C++ side, we want to avoid
+// depending on the bitset package.
+//
+// The format after serialization is
+// uint64_t length;  // 8 bytes for length
+// uint8_t data[length/8+1];
+func SerializeLobBitset(bitset *bitset.BitSet) []byte {
+	if bitset == nil || bitset.Len() == 0 {
+		return []byte{}
+	}
+
+	length := bitset.Len()
+	// Allocate single buffer for both length and data
+	bytes := make([]byte, 8+length/8+1)
+
+	// Write length as uint64 in little-endian
+	binary.LittleEndian.PutUint64(bytes[:8], uint64(length))
+
+	// Write bitset data starting after length
+	for i := 0; i < int(length); i++ {
+		if bitset.Test(uint(i)) {
+			bytes[8+i/8] |= 1 << (i % 8)
+		}
+	}
+
+	return bytes
+}
+
+func DeserializeLobBitset(data []byte) (*bitset.BitSet, error) {
+	if data == nil || len(data) < 8 {
+		return nil, fmt.Errorf("invalid lob bitset data")
+	}
+
+	length := binary.LittleEndian.Uint64(data[:8])
+	if length == 0 {
+		return nil, nil
+	}
+
+	bitset := bitset.New(uint(length))
+	for i := 0; i < int(length); i++ {
+		if data[8+i/8]&(1<<(i%8)) != 0 {
+			bitset.Set(uint(i))
+		}
+	}
+	return bitset, nil
+}
+
 // Serialize transforms insert data to blob. It will sort insert data by timestamp.
 // From schema, it gets all fields.
 // For each field, it will create a binlog writer, and write an event to the binlog.
@@ -278,6 +330,9 @@ func (insertCodec *InsertCodec) Serialize(partitionID UniqueID, segmentID Unique
 			}
 			writer.AddExtra(originalSizeKey, fmt.Sprintf("%v", blockMemorySize))
 			writer.SetEventTimeStamp(startTs, endTs)
+			if field.DataType == schemapb.DataType_Text {
+				writer.AddExtra(lobBitsetKey, SerializeLobBitset(&singleData.(*StringFieldData).IsLobs))
+			}
 		}
 
 		err = writer.Finish()
@@ -338,7 +393,7 @@ func AddFieldDataToPayload(eventWriter *insertEventWriter, dataType schemapb.Dat
 		if err = eventWriter.AddDoubleToPayload(singleData.(*DoubleFieldData).Data, singleData.(*DoubleFieldData).ValidData); err != nil {
 			return err
 		}
-	case schemapb.DataType_String, schemapb.DataType_VarChar, schemapb.DataType_Text:
+	case schemapb.DataType_String, schemapb.DataType_VarChar:
 		for i, singleString := range singleData.(*StringFieldData).Data {
 			isValid := true
 			if len(singleData.(*StringFieldData).ValidData) != 0 {
@@ -346,6 +401,31 @@ func AddFieldDataToPayload(eventWriter *insertEventWriter, dataType schemapb.Dat
 			}
 			if err = eventWriter.AddOneStringToPayload(singleString, isValid); err != nil {
 				return err
+			}
+		}
+	case schemapb.DataType_Text:
+		if err := ValidateLobData(singleData.(*StringFieldData)); err != nil {
+			return err
+		}
+
+		data := singleData.(*StringFieldData)
+		for i, singleString := range data.Data {
+			isValid := true
+			if len(data.ValidData) != 0 {
+				isValid = singleData.(*StringFieldData).ValidData[i]
+			}
+
+			if data.IsLobs.Test(uint(i)) {
+				lobIdStr := strconv.FormatInt(data.LobIds[uint(i)], 10)
+				// write LOB id as the actual value in the field data
+				// the original string should be written to the remote storage already at this stage
+				if err = eventWriter.AddOneStringToPayload(lobIdStr, isValid); err != nil {
+					return err
+				}
+			} else {
+				if err = eventWriter.AddOneStringToPayload(singleString, isValid); err != nil {
+					return err
+				}
 			}
 		}
 	case schemapb.DataType_Array:

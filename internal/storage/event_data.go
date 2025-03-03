@@ -34,6 +34,7 @@ import (
 const (
 	originalSizeKey = "original_size"
 	nullableKey     = "nullable"
+	lobBitsetKey    = "lob_bitset"
 )
 
 const version = "version"

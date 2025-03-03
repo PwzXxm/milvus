@@ -28,6 +28,7 @@ import (
 	"strconv"
 
 	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/bits-and-blooms/bitset"
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
@@ -526,6 +527,7 @@ func ColumnBasedInsertMsgToInsertData(msg *msgstream.InsertMsg, collSchema *sche
 		Data: make(map[FieldID]FieldData),
 	}
 	length := 0
+	lobCnt := 0
 	for _, field := range collSchema.Fields {
 		if IsBM25FunctionOutputField(field, collSchema) {
 			continue
@@ -683,13 +685,38 @@ func ColumnBasedInsertMsgToInsertData(msg *msgstream.InsertMsg, collSchema *sche
 				ValidData: validData,
 			}
 
-		case schemapb.DataType_String, schemapb.DataType_VarChar, schemapb.DataType_Text:
+		case schemapb.DataType_String, schemapb.DataType_VarChar:
 			srcData := srcField.GetScalars().GetStringData().GetData()
 			validData := srcField.GetValidData()
-
 			fieldData = &StringFieldData{
 				Data:      srcData,
 				ValidData: validData,
+			}
+
+		case schemapb.DataType_Text:
+			srcData := srcField.GetScalars().GetStringData().GetData()
+			validData := srcField.GetValidData()
+
+			lobThreshold := paramtable.Get().DataNodeCfg.LargeObjectThreshold.GetAsInt64()
+			var isLobs *bitset.BitSet
+			for i, s := range srcData {
+				if int64(len(s)) > lobThreshold {
+					if isLobs == nil {
+						// create the bitset with the full length of the data
+						// as there is no such info when deserializing the data
+						isLobs = bitset.New(uint(len(srcData)))
+					}
+					isLobs.Set(uint(i))
+					lobCnt++
+				}
+			}
+			fieldData = &StringFieldData{
+				Data:      srcData,
+				DataType:  schemapb.DataType_Text,
+				ValidData: validData,
+			}
+			if isLobs != nil {
+				fieldData.(*StringFieldData).IsLobs = *isLobs
 			}
 
 		case schemapb.DataType_Array:
@@ -727,7 +754,9 @@ func ColumnBasedInsertMsgToInsertData(msg *msgstream.InsertMsg, collSchema *sche
 
 	idata.Infos = []BlobInfo{
 		{Length: length},
+		{LobTotalCnt: lobCnt}, // total number of large objects in all columns
 	}
+	log.Info("--- InsertMsgToInsertData", zap.Any("lobCnt", lobCnt))
 	return idata, nil
 }
 

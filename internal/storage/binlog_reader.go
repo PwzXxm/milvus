@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/bits-and-blooms/bitset"
 	"github.com/cockroachdb/errors"
 
 	"github.com/milvus-io/milvus/pkg/v2/common"
@@ -73,6 +74,15 @@ func (reader *BinlogReader) readDescriptorEvent() (*descriptorEvent, error) {
 	}
 	reader.descriptorEvent = *event
 	return &reader.descriptorEvent, nil
+}
+
+func (reader *BinlogReader) GetLobBitsetFromDescriptorExtra() *bitset.BitSet {
+	bytes := reader.descriptorEvent.descriptorEventData.Extras[lobBitsetKey]
+	bitset, err := DeserializeLobBitset(bytes.([]byte))
+	if err != nil {
+		return nil
+	}
+	return bitset
 }
 
 func readMagicNumber(buffer io.Reader) (int32, error) {

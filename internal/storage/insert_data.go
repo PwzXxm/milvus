@@ -22,6 +22,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/bits-and-blooms/bitset"
 	"github.com/milvus-io/milvus-proto/go-api/v2/schemapb"
 	"github.com/milvus-io/milvus/pkg/v2/common"
 	"github.com/milvus-io/milvus/pkg/v2/util/merr"
@@ -31,7 +32,8 @@ import (
 // TODO: fill it
 // info for each blob
 type BlobInfo struct {
-	Length int
+	Length      int
+	LobTotalCnt int
 }
 
 // InsertData example row_schema: {float_field, int_field, float_vector_field, string_field}
@@ -386,6 +388,8 @@ type StringFieldData struct {
 	DataType  schemapb.DataType
 	ValidData []bool
 	Nullable  bool
+	IsLobs    bitset.BitSet
+	LobIds    map[uint]typeutil.UniqueID // mapping from row index to lob id (binlogId), use only when writing LOBs
 }
 type ArrayFieldData struct {
 	ElementType schemapb.DataType
@@ -1379,8 +1383,16 @@ func (data *Int8VectorFieldData) GetDataType() schemapb.DataType {
 // If v is neither of these, binary.Size returns -1.
 func (data *StringFieldData) GetMemorySize() int {
 	var size int
-	for _, val := range data.Data {
-		size += len(val) + 16
+	for i, val := range data.Data {
+		if data.IsLobs.Test(uint(i)) {
+			// if the data is a large object, we do not store the data in the payload,
+			// but in another file, so we only need to store the binlogID and golang structure for storing the binlogID
+			// 8 bytes for int64 (binlogID)
+			// 16 bytes for ptr + len
+			size += 8 + 16
+		} else {
+			size += len(val) + 16
+		}
 	}
 	return size + binary.Size(data.ValidData) + binary.Size(data.Nullable)
 }

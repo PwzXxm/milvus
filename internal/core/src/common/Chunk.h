@@ -130,10 +130,16 @@ class FixedWidthChunk : public Chunk {
 class StringChunk : public Chunk {
  public:
     StringChunk() = default;
-    StringChunk(int32_t row_nums, char* data, uint64_t size, bool nullable)
-        : Chunk(row_nums, data, size, nullable) {
+    StringChunk(int32_t row_nums, char* data, uint64_t size, bool nullable, std::optional<BitsetTypePtr> lob_bitset)
+        : Chunk(row_nums, data, size, nullable), lob_bitset_(std::move(lob_bitset)) {
         auto null_bitmap_bytes_num = (row_nums + 7) / 8;
         offsets_ = reinterpret_cast<uint64_t*>(data + null_bitmap_bytes_num);
+
+        std::cout << "--- lob bitset hasvalue: " << lob_bitset_.has_value() << std::endl;
+        if (lob_bitset_.has_value()) {
+            std::cout << "--- lob bitset size: " << lob_bitset_.value()->size() << std::endl;
+            std::cout << "--- lob bitset count: " << lob_bitset_.value()->count() << std::endl;
+        }
     }
 
     std::string_view
@@ -188,6 +194,7 @@ class StringChunk : public Chunk {
 
  protected:
     uint64_t* offsets_;
+    std::optional<BitsetTypePtr> lob_bitset_;
 };
 
 using JSONChunk = StringChunk;

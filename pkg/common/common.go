@@ -106,6 +106,9 @@ const (
 	// SegmentBm25LogPath storage path const for bm25 statistic
 	SegmentBm25LogPath = `bm25_stats`
 
+	// LobPath storage path const for large objects (LOBs), i.e., Text data type
+	SegmentLobPath = "lob"
+
 	// PartitionStatsPath storage path const for partition stats files
 	PartitionStatsPath = `part_stats`
 

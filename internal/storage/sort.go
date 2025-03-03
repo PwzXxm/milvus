@@ -124,6 +124,7 @@ func Sort(schema *schemapb.CollectionSchema, rr []RecordReader,
 		return rw.Write(rec)
 	}
 
+	// newLobBitsets := make([][]*bitset.BitSet, len(*lobBitsets))
 	for i, idx := range indices {
 		for c, builder := range builders {
 			fid := schema.Fields[c].FieldID
@@ -137,6 +138,11 @@ func Sort(schema *schemapb.CollectionSchema, rr []RecordReader,
 				return 0, err
 			}
 		}
+
+		// if newLobBitsets[idx.ri] == nil {
+		// 	newLobBitsets[idx.ri] = make([]*bitset.BitSet, len((*lobBitsets)[idx.ri]))
+		// }
+		// newLobBitsets[idx.ri][idx.i] = (*lobBitsets)[idx.ri][idx.i]
 	}
 
 	// write the last batch

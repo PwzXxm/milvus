@@ -378,8 +378,7 @@ ChunkedSegmentSealedImpl::LoadFieldData(FieldId field_id, FieldDataInfo& data) {
             int64_t field_data_size = 0;
             switch (data_type) {
                 case milvus::DataType::STRING:
-                case milvus::DataType::VARCHAR:
-                case milvus::DataType::TEXT: {
+                case milvus::DataType::VARCHAR: {
                     auto var_column =
                         std::make_shared<ChunkedVariableColumn<std::string>>(
                             field_meta);
@@ -392,6 +391,20 @@ ChunkedSegmentSealedImpl::LoadFieldData(FieldId field_id, FieldDataInfo& data) {
                     field_data_size = var_column->DataByteSize();
                     stats_.mem_size += var_column->DataByteSize();
                     LoadStringSkipIndex(field_id, 0, *var_column);
+                    column = std::move(var_column);
+                    break;
+                }
+                case milvus::DataType::TEXT: {
+                    auto var_column =
+                        std::make_shared<ChunkedVariableColumn<ChunkedTextType>>(
+                            field_meta);
+                    std::shared_ptr<milvus::ArrowDataWrapper> r;
+                    while (data.arrow_reader_channel->pop(r)) {
+                        auto chunk = create_chunk(field_meta, 1, r->reader, r->lob_bitset);
+                        var_column->AddChunk(chunk);
+                    }
+                    field_data_size = var_column->DataByteSize();
+                    stats_.mem_size += var_column->DataByteSize();
                     column = std::move(var_column);
                     break;
                 }
