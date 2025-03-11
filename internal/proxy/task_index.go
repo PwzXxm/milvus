@@ -533,6 +533,10 @@ func (cit *createIndexTask) PreExecute(ctx context.Context) error {
 		return err
 	}
 
+	if cit.fieldSchema.GetDataType() == schemapb.DataType_Text {
+		return merr.WrapErrParameterInvalidMsg("text type does not support index")
+	}
+
 	// check index param, not accurate, only some static rules
 	err = cit.parseIndexParams(ctx)
 	if err != nil {

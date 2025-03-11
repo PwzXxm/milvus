@@ -96,6 +96,13 @@ func Sort(schema *schemapb.CollectionSchema, rr []RecordReader,
 	//	small batch size will cause write performance degradation. To work around this issue, we accumulate
 	//	records and write them in batches. This requires additional memory copy.
 	batchSize := 100000
+	for _, f := range schema.Fields {
+		if f.GetDataType() == schemapb.DataType_Text {
+			batchSize /= 100
+		}
+	}
+	batchSize = max(batchSize, 1)
+
 	builders := make([]array.Builder, len(schema.Fields))
 	for i, f := range schema.Fields {
 		b := array.NewBuilder(memory.DefaultAllocator, records[0].Column(f.FieldID).DataType())
