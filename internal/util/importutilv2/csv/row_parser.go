@@ -237,7 +237,7 @@ func (r *rowParser) parseEntity(field *schemapb.FieldSchema, obj string) (any, e
 			return 0, r.wrapTypeError(obj, field)
 		}
 		return num, typeutil.VerifyFloats64([]float64{num})
-	case schemapb.DataType_VarChar, schemapb.DataType_String:
+	case schemapb.DataType_VarChar, schemapb.DataType_String, schemapb.DataType_Text:
 		if nullable && obj == r.nullkey {
 			return nil, nil
 		}

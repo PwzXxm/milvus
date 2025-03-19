@@ -438,6 +438,8 @@ func validateElementType(dataType schemapb.DataType) error {
 	case schemapb.DataType_Bool, schemapb.DataType_Int8, schemapb.DataType_Int16, schemapb.DataType_Int32,
 		schemapb.DataType_Int64, schemapb.DataType_Float, schemapb.DataType_Double, schemapb.DataType_VarChar:
 		return nil
+	case schemapb.DataType_Text:
+		return errors.New("text data type is not supported yet as element type")
 	case schemapb.DataType_String:
 		return errors.New("string data type not supported yet, please use VarChar type instead")
 	case schemapb.DataType_None:

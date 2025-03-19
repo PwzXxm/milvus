@@ -20,9 +20,9 @@ namespace milvus::exec::expression::function {
 
 void
 CheckVarcharOrStringType(std::shared_ptr<SimpleVector>& vec) {
-    if (vec->type() != DataType::VARCHAR && vec->type() != DataType::STRING) {
+    if (vec->type() != DataType::VARCHAR && vec->type() != DataType::STRING && vec->type() != DataType::TEXT) {
         PanicInfo(ExprInvalid,
-                  "invalid argument type, expect VARCHAR or STRING, actual {}",
+                  "invalid argument type, expect VARCHAR or STRING or TEXT, actual {}",
                   vec->type());
     }
 }

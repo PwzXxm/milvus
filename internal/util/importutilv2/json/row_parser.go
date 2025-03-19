@@ -397,7 +397,7 @@ func (r *rowParser) parseEntity(fieldID int64, obj any) (any, error) {
 			vec[i] = int8(num)
 		}
 		return vec, nil
-	case schemapb.DataType_String, schemapb.DataType_VarChar:
+	case schemapb.DataType_String, schemapb.DataType_VarChar, schemapb.DataType_Text:
 		value, ok := obj.(string)
 		if !ok {
 			return nil, r.wrapTypeError(obj, fieldID)
@@ -543,7 +543,7 @@ func (r *rowParser) parseNullableEntity(fieldID int64, obj any) (any, error) {
 		return num, nil
 	case schemapb.DataType_BinaryVector, schemapb.DataType_FloatVector, schemapb.DataType_Float16Vector, schemapb.DataType_BFloat16Vector, schemapb.DataType_SparseFloatVector, schemapb.DataType_Int8Vector:
 		return nil, merr.WrapErrParameterInvalidMsg("not support nullable in vector")
-	case schemapb.DataType_String, schemapb.DataType_VarChar:
+	case schemapb.DataType_String, schemapb.DataType_VarChar, schemapb.DataType_Text:
 		if obj == nil {
 			return nil, nil
 		}
@@ -697,7 +697,7 @@ func (r *rowParser) arrayToFieldData(arr []interface{}, eleType schemapb.DataTyp
 				},
 			},
 		}, nil
-	case schemapb.DataType_VarChar, schemapb.DataType_String:
+	case schemapb.DataType_VarChar, schemapb.DataType_String, schemapb.DataType_Text:
 		values := make([]string, len(arr))
 		for i, v := range arr {
 			value, ok := v.(string)

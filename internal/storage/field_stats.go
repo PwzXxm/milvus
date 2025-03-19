@@ -121,6 +121,10 @@ func (stats *FieldStats) UnmarshalJSON(data []byte) error {
 		stats.Max = &VarCharFieldValue{}
 		stats.Min = &VarCharFieldValue{}
 		isScalarField = true
+	case schemapb.DataType_Text:
+		stats.Max = &TextFieldValue{}
+		stats.Min = &TextFieldValue{}
+		isScalarField = true
 	case schemapb.DataType_FloatVector:
 		stats.Centroids = []VectorFieldValue{}
 		isScalarField = false
@@ -310,6 +314,17 @@ func (stats *FieldStats) UpdateByMsgs(msgs FieldData) {
 			stats.UpdateMinMax(pk)
 			stats.BF.AddString(str)
 		}
+	case schemapb.DataType_Text:
+		data := msgs.(*StringFieldData).Data
+		// return error: msgs must has one element at least
+		if len(data) < 1 {
+			return
+		}
+		for _, str := range data {
+			pk := NewTextFieldValue(str)
+			stats.UpdateMinMax(pk)
+			stats.BF.AddString(str)
+		}
 	default:
 		// TODO::
 	}
@@ -348,10 +363,7 @@ func (stats *FieldStats) Update(pk ScalarFieldValue) {
 		b := make([]byte, 8)
 		common.Endian.PutUint64(b, uint64(data))
 		stats.BF.Add(b)
-	case schemapb.DataType_String:
-		data := pk.GetValue().(string)
-		stats.BF.AddString(data)
-	case schemapb.DataType_VarChar:
+	case schemapb.DataType_String, schemapb.DataType_VarChar, schemapb.DataType_Text:
 		data := pk.GetValue().(string)
 		stats.BF.AddString(data)
 	default:

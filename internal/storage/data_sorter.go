@@ -77,7 +77,7 @@ func (ds *DataSorter) Swap(i, j int) {
 		case schemapb.DataType_Double:
 			data := singleData.(*DoubleFieldData).Data
 			data[i], data[j] = data[j], data[i]
-		case schemapb.DataType_String, schemapb.DataType_VarChar:
+		case schemapb.DataType_String, schemapb.DataType_VarChar, schemapb.DataType_Text:
 			data := singleData.(*StringFieldData).Data
 			data[i], data[j] = data[j], data[i]
 		case schemapb.DataType_BinaryVector:

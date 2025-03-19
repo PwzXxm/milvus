@@ -89,6 +89,17 @@ func TestRowParser_Parse_Valid(t *testing.T) {
 					},
 				},
 			},
+			{
+				FieldID:  7,
+				Name:     "text_field",
+				DataType: schemapb.DataType_Text,
+				TypeParams: []*commonpb.KeyValuePair{
+					{
+						Key:   "max_length",
+						Value: "1024",
+					},
+				},
+			},
 		},
 	}
 	r, err := NewRowParser(schema)
@@ -108,6 +119,8 @@ func TestRowParser_Parse_Valid(t *testing.T) {
 		{name: `{"id": 1, "vector": [], "arrayField": [1, 2, 3], "$meta": {}, "name": "testName"}`, dyFields: nil},
 		{name: `{"id": 1, "vector": [], "arrayField": [1, 2, 3], "x": 8 , "name": "testName"}`, dyFields: []string{"x"}},
 		{name: `{"id": 1, "vector": [], "arrayField": [1, 2, 3], "name": "testName"}`, dyFields: nil},
+		{name: `{"id": 1, "vector": [], "arrayField": [1, 2, 3], "text_field": "some text content", "name": "testName"}`, dyFields: nil},
+		{name: `{"id": 1, "vector": [], "arrayField": [1, 2, 3], "text_field": "longer text content with spaces", "$meta": {"x": 8}, "name": "testName"}`, dyFields: []string{"x"}},
 	}
 
 	for _, c := range cases {
@@ -185,6 +198,17 @@ func TestRowParser_Parse_Invalid(t *testing.T) {
 					},
 				},
 			},
+			{
+				FieldID:  7,
+				Name:     "text_field",
+				DataType: schemapb.DataType_Text,
+				TypeParams: []*commonpb.KeyValuePair{
+					{
+						Key:   "max_length",
+						Value: "10",
+					},
+				},
+			},
 		},
 	}
 	r, err := NewRowParser(schema)
@@ -203,6 +227,7 @@ func TestRowParser_Parse_Invalid(t *testing.T) {
 		{name: `{"id": 1, "vector": [], "arrayField": [1, 2, 3, 4], "x": 8, "$meta": "{\"y\": 8}", "name": "testName"}`, expectErr: "value length(8) for field name exceeds max_length(4)"},
 		{name: `{"id": 1, "vector": [], "arrayField": [1, 2, 3, 4, 5], "x": 8, "$meta": "{\"z\": 9}", "name": "test"}`, expectErr: "array capacity(5) for field arrayField exceeds max_capacity(4)"},
 		{name: `{"id": 1, "vector": [], "x": 8, "$meta": "{\"z\": 9}", "name": "test"}`, expectErr: "value of field 'arrayField' is missed"},
+		{name: `{"id": 1, "vector": [], "arrayField": [1, 2, 3, 4], "text_field": "this text is too long", "name": "test"}`, expectErr: "value length 19 exceeds max_length 10"},
 	}
 
 	for _, c := range cases {

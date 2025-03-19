@@ -205,8 +205,8 @@ func checkFieldSchema(schema *schemapb.CollectionSchema) error {
 					return errTypeMismatch(fieldSchema.GetName(), dtype.String(), "DataType_Double")
 				}
 			case *schemapb.ValueField_StringData:
-				if dtype != schemapb.DataType_VarChar {
-					return errTypeMismatch(fieldSchema.GetName(), dtype.String(), "DataType_VarChar")
+				if dtype != schemapb.DataType_VarChar && dtype != schemapb.DataType_Text {
+					return errTypeMismatch(fieldSchema.GetName(), dtype.String(), "DataType_VarChar or DataType_Text")
 				}
 				maxLength, err := parameterutil.GetMaxLength(fieldSchema)
 				if err != nil {

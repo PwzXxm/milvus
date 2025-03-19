@@ -53,7 +53,7 @@ func GetDefaultValue(field *schemapb.FieldSchema) (any, error) {
 			return field.GetDefaultValue().GetFloatData(), nil
 		case schemapb.DataType_Double:
 			return field.GetDefaultValue().GetDoubleData(), nil
-		case schemapb.DataType_String, schemapb.DataType_VarChar:
+		case schemapb.DataType_String, schemapb.DataType_VarChar, schemapb.DataType_Text:
 			return field.GetDefaultValue().GetStringData(), nil
 		default:
 			msg := fmt.Sprintf("type (%s) not support default_value", field.GetDataType().String())

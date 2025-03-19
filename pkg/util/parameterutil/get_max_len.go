@@ -14,7 +14,7 @@ import (
 func GetMaxLength(field *schemapb.FieldSchema) (int64, error) {
 	if !typeutil.IsStringType(field.GetDataType()) && !typeutil.IsStringType(field.GetElementType()) {
 		msg := fmt.Sprintf("%s is not of string type", field.GetDataType())
-		return 0, merr.WrapErrParameterInvalid(schemapb.DataType_VarChar, field.GetDataType(), msg)
+		return 0, merr.WrapErrParameterInvalid("VARCHAR or TEXT", field.GetDataType().String(), msg)
 	}
 	h := typeutil.NewKvPairs(append(field.GetIndexParams(), field.GetTypeParams()...))
 	maxLengthStr, err := h.Get(common.MaxLengthKey)

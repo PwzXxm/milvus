@@ -66,7 +66,7 @@ func BuildRecord(b *array.RecordBuilder, data *storage.InsertData, fields []*sch
 			fBuilder.(*array.Float32Builder).AppendValues(data.Data[field.FieldID].(*storage.FloatFieldData).Data, nil)
 		case schemapb.DataType_Double:
 			fBuilder.(*array.Float64Builder).AppendValues(data.Data[field.FieldID].(*storage.DoubleFieldData).Data, nil)
-		case schemapb.DataType_VarChar, schemapb.DataType_String:
+		case schemapb.DataType_VarChar, schemapb.DataType_String, schemapb.DataType_Text:
 			fBuilder.(*array.StringBuilder).AppendValues(data.Data[field.FieldID].(*storage.StringFieldData).Data, nil)
 		case schemapb.DataType_Array:
 			for _, data := range data.Data[field.FieldID].(*storage.ArrayFieldData).Data {

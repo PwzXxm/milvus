@@ -969,6 +969,102 @@ func (vcfv *VarCharFieldValue) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type TextFieldValue struct {
+	Value string `json:"value"`
+}
+
+func NewTextFieldValue(v string) *TextFieldValue {
+	return &TextFieldValue{
+		Value: v,
+	}
+}
+
+func (vcfv *TextFieldValue) GT(obj ScalarFieldValue) bool {
+	v, ok := obj.(*TextFieldValue)
+	if !ok {
+		log.Warn("type of compared obj is not text")
+		return false
+	}
+
+	return strings.Compare(vcfv.Value, v.Value) > 0
+}
+
+func (vcfv *TextFieldValue) GE(obj ScalarFieldValue) bool {
+	v, ok := obj.(*TextFieldValue)
+	if !ok {
+		log.Warn("type of compared obj is not text")
+		return false
+	}
+	return strings.Compare(vcfv.Value, v.Value) >= 0
+}
+
+func (vcfv *TextFieldValue) LT(obj ScalarFieldValue) bool {
+	v, ok := obj.(*TextFieldValue)
+	if !ok {
+		log.Warn("type of compared obj is not text")
+		return false
+	}
+	return strings.Compare(vcfv.Value, v.Value) < 0
+}
+
+func (vcfv *TextFieldValue) LE(obj ScalarFieldValue) bool {
+	v, ok := obj.(*TextFieldValue)
+	if !ok {
+		log.Warn("type of compared obj is not text")
+		return false
+	}
+	return strings.Compare(vcfv.Value, v.Value) <= 0
+}
+
+func (vcfv *TextFieldValue) EQ(obj ScalarFieldValue) bool {
+	v, ok := obj.(*TextFieldValue)
+	if !ok {
+		log.Warn("type of compared obj is not text")
+		return false
+	}
+	return strings.Compare(vcfv.Value, v.Value) == 0
+}
+
+func (vcfv *TextFieldValue) SetValue(data interface{}) error {
+	value, ok := data.(string)
+	if !ok {
+		return fmt.Errorf("wrong type value when setValue for StringFieldValue")
+	}
+
+	vcfv.Value = value
+	return nil
+}
+
+func (vcfv *TextFieldValue) GetValue() interface{} {
+	return vcfv.Value
+}
+
+func (vcfv *TextFieldValue) Type() schemapb.DataType {
+	return schemapb.DataType_Text
+}
+
+func (vcfv *TextFieldValue) Size() int64 {
+	return int64(8*len(vcfv.Value) + 8)
+}
+
+func (vcfv *TextFieldValue) MarshalJSON() ([]byte, error) {
+	ret, err := json.Marshal(vcfv.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+func (vcfv *TextFieldValue) UnmarshalJSON(data []byte) error {
+	err := json.Unmarshal(data, &vcfv.Value)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 type VectorFieldValue interface {
 	MarshalJSON() ([]byte, error)
 	UnmarshalJSON(data []byte) error
@@ -1068,6 +1164,9 @@ func NewScalarFieldValueFromGenericValue(dtype schemapb.DataType, gVal *planpb.G
 	case schemapb.DataType_VarChar:
 		strVal := gVal.Val.(*planpb.GenericValue_StringVal)
 		return NewVarCharFieldValue(strVal.StringVal), nil
+	case schemapb.DataType_Text:
+		strVal := gVal.Val.(*planpb.GenericValue_StringVal)
+		return NewTextFieldValue(strVal.StringVal), nil
 	default:
 		// should not be reach
 		panic(fmt.Sprintf("not supported datatype: %s", dtype.String()))
@@ -1092,6 +1191,8 @@ func NewScalarFieldValue(dtype schemapb.DataType, data interface{}) ScalarFieldV
 		return NewStringFieldValue(data.(string))
 	case schemapb.DataType_VarChar:
 		return NewVarCharFieldValue(data.(string))
+	case schemapb.DataType_Text:
+		return NewTextFieldValue(data.(string))
 	default:
 		// should not be reach
 		panic(fmt.Sprintf("not supported datatype: %s", dtype.String()))

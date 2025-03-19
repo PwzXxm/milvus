@@ -166,7 +166,7 @@ func (c *FieldReader) Next(count int64) (any, error) {
 			return nil, err
 		}
 		c.readPosition += int(readCount)
-	case schemapb.DataType_VarChar:
+	case schemapb.DataType_VarChar, schemapb.DataType_Text:
 		data, err = c.ReadString(readCount)
 		c.readPosition += int(readCount)
 		if err != nil {
@@ -279,7 +279,7 @@ func (c *FieldReader) ReadString(count int64) ([]string, error) {
 			fmt.Sprintf("failed to get max length %d of varchar from numpy file header, error: %v", maxLen, err))
 	}
 	maxLength, err := parameterutil.GetMaxLength(c.field)
-	if c.field.DataType == schemapb.DataType_VarChar && err != nil {
+	if (c.field.DataType == schemapb.DataType_VarChar || c.field.DataType == schemapb.DataType_Text) && err != nil {
 		return nil, err
 	}
 	// read data
@@ -298,7 +298,7 @@ func (c *FieldReader) ReadString(count int64) ([]string, error) {
 				return nil, merr.WrapErrImportFailed(fmt.Sprintf("failed to read utf32 bytes from numpy file, error: %v", err))
 			}
 			str, err := decodeUtf32(raw, c.order)
-			if c.field.DataType == schemapb.DataType_VarChar {
+			if c.field.DataType == schemapb.DataType_VarChar || c.field.DataType == schemapb.DataType_Text {
 				if err = common.CheckVarcharLength(str, maxLength, c.field); err != nil {
 					return nil, err
 				}

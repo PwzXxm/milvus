@@ -1202,7 +1202,7 @@ func TransferInsertDataToInsertRecord(insertData *InsertData) (*segcorepb.Insert
 			}
 		case *StringFieldData:
 			fieldData = &schemapb.FieldData{
-				Type:    schemapb.DataType_VarChar,
+				Type:    rawData.GetDataType(),
 				FieldId: fieldID,
 				Field: &schemapb.FieldData_Scalars{
 					Scalars: &schemapb.ScalarField{
@@ -1442,7 +1442,7 @@ func getDefaultValue(fieldSchema *schemapb.FieldSchema) interface{} {
 		return fieldSchema.GetDefaultValue().GetFloatData()
 	case schemapb.DataType_Double:
 		return fieldSchema.GetDefaultValue().GetDoubleData()
-	case schemapb.DataType_VarChar, schemapb.DataType_String:
+	case schemapb.DataType_VarChar, schemapb.DataType_String, schemapb.DataType_Text:
 		return fieldSchema.GetDefaultValue().GetStringData()
 	default:
 		// won't happen

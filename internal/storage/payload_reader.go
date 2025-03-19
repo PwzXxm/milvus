@@ -92,7 +92,7 @@ func (r *PayloadReader) GetDataFromPayload() (interface{}, []bool, int, error) {
 	case schemapb.DataType_Int8Vector:
 		val, dim, err := r.GetInt8VectorFromPayload()
 		return val, nil, dim, err
-	case schemapb.DataType_String, schemapb.DataType_VarChar:
+	case schemapb.DataType_String, schemapb.DataType_VarChar, schemapb.DataType_Text:
 		val, validData, err := r.GetStringFromPayload()
 		return val, validData, 0, err
 	case schemapb.DataType_Array:
@@ -367,7 +367,7 @@ func (r *PayloadReader) GetDoubleFromPayload() ([]float64, []bool, error) {
 }
 
 func (r *PayloadReader) GetStringFromPayload() ([]string, []bool, error) {
-	if r.colType != schemapb.DataType_String && r.colType != schemapb.DataType_VarChar {
+	if r.colType != schemapb.DataType_String && r.colType != schemapb.DataType_VarChar && r.colType != schemapb.DataType_Text {
 		return nil, nil, merr.WrapErrParameterInvalidMsg(fmt.Sprintf("failed to get string from datatype %v", r.colType.String()))
 	}
 
@@ -436,7 +436,7 @@ func (r *PayloadReader) GetJSONFromPayload() ([][]byte, []bool, error) {
 }
 
 func (r *PayloadReader) GetByteArrayDataSet() (*DataSet[parquet.ByteArray, *file.ByteArrayColumnChunkReader], error) {
-	if r.colType != schemapb.DataType_String && r.colType != schemapb.DataType_VarChar {
+	if r.colType != schemapb.DataType_String && r.colType != schemapb.DataType_VarChar && r.colType != schemapb.DataType_Text {
 		return nil, fmt.Errorf("failed to get string from datatype %v", r.colType.String())
 	}
 

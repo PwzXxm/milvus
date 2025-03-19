@@ -137,7 +137,7 @@ func (c *FieldReader) Next(count int64) (any, any, error) {
 			return nil, nil, nil
 		}
 		return data, nil, typeutil.VerifyFloats64(data.([]float64))
-	case schemapb.DataType_VarChar, schemapb.DataType_String:
+	case schemapb.DataType_VarChar, schemapb.DataType_String, schemapb.DataType_Text:
 		if c.field.GetNullable() || c.field.GetDefaultValue() != nil {
 			return ReadNullableVarcharData(c, count)
 		}

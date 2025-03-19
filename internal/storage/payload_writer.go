@@ -149,7 +149,7 @@ func (w *NativePayloadWriter) AddDataToPayload(data interface{}, validData []boo
 			return merr.WrapErrParameterInvalidMsg("incorrect data type")
 		}
 		return w.AddDoubleToPayload(val, validData)
-	case schemapb.DataType_String, schemapb.DataType_VarChar:
+	case schemapb.DataType_String, schemapb.DataType_VarChar, schemapb.DataType_Text:
 		val, ok := data.(string)
 		if !ok {
 			return merr.WrapErrParameterInvalidMsg("incorrect data type")

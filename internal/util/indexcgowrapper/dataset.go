@@ -121,8 +121,12 @@ func GenDataset(data storage.FieldData) *Dataset {
 			},
 		}
 	case *storage.StringFieldData:
+		dtype := schemapb.DataType_VarChar
+		if data.GetDataType() == schemapb.DataType_Text {
+			dtype = schemapb.DataType_Text
+		}
 		return &Dataset{
-			DType: schemapb.DataType_VarChar,
+			DType: dtype,
 			Data: map[string]interface{}{
 				keyRawArr: f.Data,
 			},
