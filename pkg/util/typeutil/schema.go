@@ -577,6 +577,12 @@ func IsBoolType(dataType schemapb.DataType) bool {
 	}
 }
 
+// IsLargeObjectDataType returns true if input is a large object type, otherwise false
+// The LOBs will be stored in external file, leaves only reference key in the field data
+func IsLargeObjectDataType(dataType schemapb.DataType) bool {
+	return dataType == schemapb.DataType_Text
+}
+
 // IsStringType returns true if input is a varChar type, otherwise false
 func IsStringType(dataType schemapb.DataType) bool {
 	switch dataType {

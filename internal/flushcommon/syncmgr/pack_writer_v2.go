@@ -27,6 +27,7 @@ import (
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 
+	"github.com/milvus-io/milvus-proto/go-api/v2/schemapb"
 	"github.com/milvus-io/milvus/internal/allocator"
 	"github.com/milvus-io/milvus/internal/flushcommon/metacache"
 	"github.com/milvus-io/milvus/internal/storage"
@@ -73,12 +74,18 @@ func (bw *BulkPackWriterV2) Write(ctx context.Context, pack *SyncPack) (
 	deltas *datapb.FieldBinlog,
 	stats map[int64]*datapb.FieldBinlog,
 	bm25Stats map[int64]*datapb.FieldBinlog,
+	lobDatas map[int64]*datapb.FieldBinlog,
 	size int64,
 	err error,
 ) {
 	err = bw.prefetchIDs(pack)
 	if err != nil {
 		log.Warn("failed allocate ids for sync task", zap.Error(err))
+		return
+	}
+
+	if lobDatas, err = bw.writeLobData(ctx, pack); err != nil {
+		log.Error("failed to write lob data", zap.Error(err))
 		return
 	}
 
@@ -102,6 +109,128 @@ func (bw *BulkPackWriterV2) Write(ctx context.Context, pack *SyncPack) (
 	size = bw.sizeWritten
 
 	return
+}
+
+func (bw *BulkPackWriterV2) getLobDataFieldId2BinLogIds(pack *SyncPack) map[int64]int64 {
+	// does insert data all have the same number of fields?
+	fieldId2BinLogId := make(map[int64]int64)
+	for _, data := range pack.insertData {
+		for fieldID, fieldData := range data.Data {
+			if typeutil.IsLargeObjectDataType(fieldData.GetDataType()) {
+				if _, ok := fieldId2BinLogId[fieldID]; !ok {
+					fieldId2BinLogId[fieldID] = bw.nextID()
+				}
+			}
+		}
+	}
+	return fieldId2BinLogId
+}
+
+// TODO: POC solution, refactor later
+func (bw *BulkPackWriterV2) writeLobData(ctx context.Context, pack *SyncPack) (map[int64]*datapb.FieldBinlog, error) {
+	if len(pack.insertData) == 0 {
+		return make(map[int64]*datapb.FieldBinlog), nil
+	}
+
+	fieldId2BinLogId := bw.getLobDataFieldId2BinLogIds(pack)
+	if len(fieldId2BinLogId) == 0 {
+		return make(map[int64]*datapb.FieldBinlog), nil
+	}
+
+	lobFieldSchemas := make([]*schemapb.FieldSchema, 0)
+	paths := make([]string, 0)
+	columnGroups := make([]storagecommon.ColumnGroup, 0)
+	for i, fieldSchema := range bw.metaCache.Schema().GetFields() {
+		if _, ok := fieldId2BinLogId[fieldSchema.GetFieldID()]; ok {
+			lobFieldSchemas = append(lobFieldSchemas, fieldSchema)
+			paths = append(paths, metautil.BuildLobDataPath(
+				bw.chunkManager.RootPath(),
+				pack.collectionID,
+				pack.partitionID,
+				pack.segmentID,
+				fieldSchema.GetFieldID(),
+				fieldId2BinLogId[fieldSchema.GetFieldID()],
+			))
+			columnGroups = append(columnGroups, storagecommon.ColumnGroup{Columns: []int{i}})
+		} else {
+			log.Warn("field not found in insert data", zap.Int64("field_id", fieldSchema.GetFieldID()))
+		}
+	}
+	arrowSchema, err := storage.ConvertToArrowSchema(lobFieldSchemas)
+	if err != nil {
+		return nil, err
+	}
+
+	builder := array.NewRecordBuilder(memory.DefaultAllocator, arrowSchema)
+	defer builder.Release()
+
+	for _, chunk := range pack.insertData {
+		if err := iTypeutil.BuildRecord(builder, chunk, lobFieldSchemas); err != nil {
+			return nil, err
+		}
+	}
+
+	newRec := builder.NewRecord()
+	field2Col := make(map[storage.FieldID]int, len(lobFieldSchemas))
+
+	for c, field := range lobFieldSchemas {
+		field2Col[field.FieldID] = c
+	}
+	rec := storage.NewSimpleArrowRecord(newRec, field2Col)
+
+	// extract LOBs from insert data and replace them with reference key <length, rowId, binlogId>
+	logs := make(map[int64]*datapb.FieldBinlog)
+	// TODO: adjust buffer size and multi part upload size for LOBs
+	w, err := storage.NewPackedRecordWriter(paths, arrowSchema, bw.bufferSize, bw.multiPartUploadSize, columnGroups)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = w.Write(rec); err != nil {
+		return nil, err
+	}
+
+	for columnGroup := range columnGroups {
+		columnGroupID := typeutil.UniqueID(columnGroup)
+		logs[columnGroupID] = &datapb.FieldBinlog{
+			FieldID: columnGroupID,
+			Binlogs: []*datapb.Binlog{
+				{
+					LogSize:    int64(w.GetColumnGroupWrittenUncompressed(columnGroup)),
+					MemorySize: int64(w.GetColumnGroupWrittenUncompressed(columnGroup)),
+					LogPath:    w.GetWrittenPaths()[columnGroupID],
+					EntriesNum: w.GetWrittenRowNum(),
+					// TimestampFrom: ts.MinTimestamp,
+					// TimestampTo:   ts.MaxTimestamp,
+				},
+			},
+		}
+	}
+	if err = w.Close(); err != nil {
+		return nil, err
+	}
+
+	// link by ref
+	for fieldId, binlogId := range fieldId2BinLogId {
+		rowId := 0
+		for _, data := range pack.insertData {
+			if fieldData, ok := data.Data[fieldId]; ok {
+				switch fieldData.GetDataType() {
+				case schemapb.DataType_Text:
+					for i, str := range fieldData.(*storage.StringFieldData).Data {
+						// TODO: we should use binary format to avoid UTF-8 checks in arrow
+						// Using fixed-width format: each number padded to 20 digits (enough for uint64)
+						fieldData.(*storage.StringFieldData).Data[i] = fmt.Sprintf("%020d%020d%020d%020d", len(str), rowId, fieldId, binlogId)
+						rowId++
+					}
+				default:
+					log.Warn("unsupported lob field type", zap.Int64("field_id", fieldId), zap.String("field_type", fieldData.GetDataType().String()))
+				}
+			}
+		}
+	}
+
+	return logs, nil
 }
 
 func (bw *BulkPackWriterV2) writeInserts(ctx context.Context, pack *SyncPack) (map[int64]*datapb.FieldBinlog, error) {

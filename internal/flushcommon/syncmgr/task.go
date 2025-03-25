@@ -68,6 +68,7 @@ type SyncTask struct {
 	insertBinlogs map[int64]*datapb.FieldBinlog // map[int64]*datapb.Binlog
 	statsBinlogs  map[int64]*datapb.FieldBinlog // map[int64]*datapb.Binlog
 	bm25Binlogs   map[int64]*datapb.FieldBinlog
+	lobDatas      map[int64]*datapb.FieldBinlog
 	deltaBinlog   *datapb.FieldBinlog
 
 	writeRetryOpts []retry.Option
@@ -127,14 +128,15 @@ func (t *SyncTask) Run(ctx context.Context) (err error) {
 	switch segmentInfo.GetStorageVersion() {
 	case storage.StorageV2:
 		writer := NewBulkPackWriterV2(t.metacache, t.chunkManager, t.allocator, t.syncBufferSize, t.multiPartUploadSize, t.writeRetryOpts...)
-		t.insertBinlogs, t.deltaBinlog, t.statsBinlogs, t.bm25Binlogs, t.flushedSize, err = writer.Write(ctx, t.pack)
+		// TODO: upload LOB data path to ETCD
+		t.insertBinlogs, t.deltaBinlog, t.statsBinlogs, t.bm25Binlogs, t.lobDatas, t.flushedSize, err = writer.Write(ctx, t.pack)
 		if err != nil {
 			log.Warn("failed to write sync data with storage v2 format", zap.Error(err))
 			return err
 		}
 	default:
 		writer := NewBulkPackWriter(t.metacache, t.chunkManager, t.allocator, t.writeRetryOpts...)
-		t.insertBinlogs, t.deltaBinlog, t.statsBinlogs, t.bm25Binlogs, t.flushedSize, err = writer.Write(ctx, t.pack)
+		t.insertBinlogs, t.deltaBinlog, t.statsBinlogs, t.bm25Binlogs, t.lobDatas, t.flushedSize, err = writer.Write(ctx, t.pack)
 		if err != nil {
 			log.Warn("failed to write sync data", zap.Error(err))
 			return err
@@ -213,8 +215,8 @@ func (t *SyncTask) IsFlush() bool {
 	return t.pack.isFlush
 }
 
-func (t *SyncTask) Binlogs() (map[int64]*datapb.FieldBinlog, map[int64]*datapb.FieldBinlog, *datapb.FieldBinlog, map[int64]*datapb.FieldBinlog) {
-	return t.insertBinlogs, t.statsBinlogs, t.deltaBinlog, t.bm25Binlogs
+func (t *SyncTask) Binlogs() (map[int64]*datapb.FieldBinlog, map[int64]*datapb.FieldBinlog, *datapb.FieldBinlog, map[int64]*datapb.FieldBinlog, map[int64]*datapb.FieldBinlog) {
+	return t.insertBinlogs, t.statsBinlogs, t.deltaBinlog, t.bm25Binlogs, t.lobDatas
 }
 
 func (t *SyncTask) MarshalJSON() ([]byte, error) {

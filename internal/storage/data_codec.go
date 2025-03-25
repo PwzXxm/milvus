@@ -307,6 +307,58 @@ func (insertCodec *InsertCodec) Serialize(partitionID UniqueID, segmentID Unique
 	return blobs, nil
 }
 
+func (insertCodec *InsertCodec) SerializeLobData(partitionID UniqueID, segmentID UniqueID, data ...*InsertData) ([]*Blob, error) {
+	blobs := make([]*Blob, 0)
+	if insertCodec.Schema == nil {
+		return nil, fmt.Errorf("schema is not set")
+	}
+
+	var rowNum int64
+	for _, block := range data {
+		timeFieldData, ok := block.Data[common.TimeStampField]
+		if !ok {
+			return nil, fmt.Errorf("data doesn't contains timestamp field")
+		}
+
+		rowNum += int64(timeFieldData.RowNum())
+	}
+
+	for _, field := range insertCodec.Schema.Schema.Fields {
+		if !typeutil.IsLargeObjectDataType(field.DataType) {
+			continue
+		}
+
+		writer = NewInsertBinlogWriter(field.DataType, insertCodec.Schema.ID, partitionID, segmentID, field.FieldID, field.GetNullable())
+
+		var memorySize int64
+		for _, block := range data {
+			singleData := block.Data[field.FieldID]
+		}
+
+		err = writer.Finish()
+		if err != nil {
+			writer.Close()
+			return nil, err
+		}
+
+		buffer, err := writer.GetBuffer()
+		if err != nil {
+			writer.Close()
+			return nil, err
+		}
+		blobKey := fmt.Sprintf("%d", field.FieldID)
+		blobs = append(blobs, &Blob{
+			Key:        blobKey,
+			Value:      buffer,
+			RowNum:     rowNum,
+			MemorySize: memorySize,
+		})
+		writer.Close()
+	}
+
+	return blobs, nil
+}
+
 func AddFieldDataToPayload(eventWriter *insertEventWriter, dataType schemapb.DataType, singleData FieldData) error {
 	var err error
 	switch dataType {

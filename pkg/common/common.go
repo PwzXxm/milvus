@@ -100,6 +100,9 @@ const (
 	// SegmentStatslogPath storage path const for segment stats log.
 	SegmentStatslogPath = `stats_log`
 
+	// SegmentLobDataPath storage path const for segment large object data.
+	SegmentLobDataPath = `lob_data`
+
 	// SegmentIndexPath storage path const for segment index files.
 	SegmentIndexPath = `index_files`
 

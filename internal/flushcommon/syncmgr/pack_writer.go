@@ -31,6 +31,7 @@ import (
 	"github.com/milvus-io/milvus/pkg/v2/proto/datapb"
 	"github.com/milvus-io/milvus/pkg/v2/util/metautil"
 	"github.com/milvus-io/milvus/pkg/v2/util/retry"
+	"github.com/milvus-io/milvus/pkg/v2/util/typeutil"
 )
 
 type PackWriter interface {
@@ -66,12 +67,18 @@ func (bw *BulkPackWriter) Write(ctx context.Context, pack *SyncPack) (
 	deltas *datapb.FieldBinlog,
 	stats map[int64]*datapb.FieldBinlog,
 	bm25Stats map[int64]*datapb.FieldBinlog,
+	lobDatas map[int64]*datapb.FieldBinlog,
 	size int64,
 	err error,
 ) {
 	err = bw.prefetchIDs(pack)
 	if err != nil {
 		log.Warn("failed allocate ids for sync task", zap.Error(err))
+		return
+	}
+
+	if lobDatas, err = bw.writeLobData(ctx, pack); err != nil {
+		log.Error("failed to write lob data", zap.Error(err))
 		return
 	}
 
@@ -102,6 +109,11 @@ func (bw *BulkPackWriter) prefetchIDs(pack *SyncPack) error {
 	totalIDCount := 0
 	if len(pack.insertData) > 0 {
 		totalIDCount += len(pack.insertData[0].Data) * 2 // binlogs and statslogs
+		for _, field := range pack.insertData[0].Data {
+			if typeutil.IsLargeObjectDataType(field.GetDataType()) {
+				totalIDCount += 1 // each text field has a binlog for external storage
+			}
+		}
 	}
 	if pack.isFlush {
 		totalIDCount++ // merged stats log
@@ -156,6 +168,37 @@ func (bw *BulkPackWriter) writeLog(ctx context.Context, blob *storage.Blob,
 		LogSize:       size,
 		MemorySize:    blob.MemorySize,
 	}, nil
+}
+
+// TODO: POC solution for v1, maybe not needed
+func (bw *BulkPackWriter) writeLobData(ctx context.Context, pack *SyncPack) (map[int64]*datapb.FieldBinlog, error) {
+	if len(pack.insertData) == 0 {
+		return make(map[int64]*datapb.FieldBinlog), nil
+	}
+
+	serializer, err := NewStorageSerializer(bw.metaCache)
+	if err != nil {
+		return nil, err
+	}
+
+	binlogBlobs, err := serializer.serializeLobBinlog(ctx, pack)
+	if err != nil {
+		return nil, err
+	}
+
+	logs := make(map[int64]*datapb.FieldBinlog)
+	for fieldID, blob := range binlogBlobs {
+		k := metautil.JoinIDPath(pack.collectionID, pack.partitionID, pack.segmentID, fieldID, bw.nextID())
+		binlog, err := bw.writeLog(ctx, blob, common.SegmentInsertLogPath, k, pack)
+		if err != nil {
+			return nil, err
+		}
+		logs[fieldID] = &datapb.FieldBinlog{
+			FieldID: fieldID,
+			Binlogs: []*datapb.Binlog{binlog},
+		}
+	}
+	return logs, nil
 }
 
 func (bw *BulkPackWriter) writeInserts(ctx context.Context, pack *SyncPack) (map[int64]*datapb.FieldBinlog, error) {

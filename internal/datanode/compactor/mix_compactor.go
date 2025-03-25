@@ -311,6 +311,11 @@ func (t *mixCompactionTask) Compact() (*datapb.CompactionPlanResult, error) {
 		log.Warn("compact wrong, fail to decompress compaction binlogs", zap.Error(err))
 		return nil, err
 	}
+	// TODO: decompress LOB binlogs if required
+	//       we should check if the (deleted rows)/(total rows) is greater than a threshold
+	//       if not, we simply copy the LOB data files to the new segment
+	//       if yes, we should decompress and rewrite the merged LOB data file for the new segment
+
 	// Unable to deal with all empty segments cases, so return error
 	isEmpty := func() bool {
 		for _, seg := range t.plan.GetSegmentBinlogs() {

@@ -1380,7 +1380,12 @@ func (data *Int8VectorFieldData) GetDataType() schemapb.DataType {
 func (data *StringFieldData) GetMemorySize() int {
 	var size int
 	for _, val := range data.Data {
-		size += len(val) + 16
+		if data.GetDataType() == schemapb.DataType_Text {
+			// only reference key is stored in the field
+			size += 192 + 16 // len, rowId in the external, file name
+		} else {
+			size += len(val) + 16
+		}
 	}
 	return size + binary.Size(data.ValidData) + binary.Size(data.Nullable)
 }

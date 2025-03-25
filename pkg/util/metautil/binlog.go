@@ -16,6 +16,10 @@ func BuildInsertLogPath(rootPath string, collectionID, partitionID, segmentID, f
 	return path.Join(rootPath, common.SegmentInsertLogPath, k)
 }
 
+func BuildLobDataPath(rootPath string, collectionID, partitionID, segmentID, fieldID, logID typeutil.UniqueID) string {
+	return path.Join(rootPath, common.SegmentLobDataPath, JoinIDPath(collectionID, partitionID, segmentID, fieldID, logID))
+}
+
 func ParseInsertLogPath(path string) (collectionID, partitionID, segmentID, fieldID, logID typeutil.UniqueID, ok bool) {
 	infos := strings.Split(path, pathSep)
 	l := len(infos)

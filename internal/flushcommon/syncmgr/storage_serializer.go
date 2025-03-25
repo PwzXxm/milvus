@@ -214,3 +214,27 @@ func hasBM25Function(schema *schemapb.CollectionSchema) bool {
 	}
 	return false
 }
+
+func (s *storageV1Serializer) serializeLobBinlog(ctx context.Context, pack *SyncPack) (map[int64]*storage.Blob, error) {
+	if len(pack.insertData) == 0 {
+		return make(map[int64]*storage.Blob), nil
+	}
+
+	log := log.Ctx(ctx)
+	blobs, err := s.inCodec.Serialize(pack.partitionID, pack.segmentID, pack.insertData...)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[int64]*storage.Blob)
+	for _, blob := range blobs {
+		fieldID, err := strconv.ParseInt(blob.GetKey(), 10, 64)
+		if err != nil {
+			log.Error("serialize buffer failed ... cannot parse string to fieldID ..", zap.Error(err))
+			return nil, err
+		}
+
+		result[fieldID] = blob
+	}
+	return result, nil
+}

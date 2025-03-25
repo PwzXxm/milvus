@@ -35,6 +35,7 @@ import (
 	"github.com/milvus-io/milvus/internal/flushcommon/io"
 	"github.com/milvus-io/milvus/internal/metastore/kv/binlog"
 	"github.com/milvus-io/milvus/internal/storage"
+	"github.com/milvus-io/milvus/internal/storagecommon"
 	"github.com/milvus-io/milvus/internal/util/indexcgowrapper"
 	"github.com/milvus-io/milvus/pkg/v2/common"
 	"github.com/milvus-io/milvus/pkg/v2/log"
@@ -165,6 +166,12 @@ func (st *statsTask) sort(ctx context.Context) ([]*datapb.FieldBinlog, error) {
 		return nil, err
 	}
 
+	// TODO: !! temporary solution, storage v2 should fix this
+	columnGroups := make([]storagecommon.ColumnGroup, 0)
+	for i := range st.req.GetSchema().GetFields() {
+		columnGroups = append(columnGroups, storagecommon.ColumnGroup{Columns: []int{i}})
+	}
+
 	alloc := allocator.NewLocalAllocator(st.req.StartLogID, st.req.EndLogID)
 	srw, err := storage.NewBinlogRecordWriter(ctx,
 		st.req.GetCollectionID(),
@@ -177,7 +184,9 @@ func (st *statsTask) sort(ctx context.Context) ([]*datapb.FieldBinlog, error) {
 		numRows,
 		storage.WithUploader(func(ctx context.Context, kvs map[string][]byte) error {
 			return st.binlogIO.Upload(ctx, kvs)
-		}))
+		}),
+		storage.WithColumnGroups(columnGroups),
+	)
 	if err != nil {
 		log.Ctx(ctx).Warn("sort segment wrong, unable to init segment writer",
 			zap.Int64("taskID", st.req.GetTaskID()), zap.Error(err))
